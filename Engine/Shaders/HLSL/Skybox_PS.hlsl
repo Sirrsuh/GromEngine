@@ -1,14 +1,16 @@
 #include "Common.hlsl"
 
-TextureCube SkyboxTexture : register(t0);
+TextureCube<float4> SkyboxTexture : register(t0);
 
-struct VSOutput
+float4 main(float4 Position : SV_POSITION,
+            float3 WorldPos : TEXCOORD) : SV_Target0
 {
-    float4 Position : SV_POSITION;
-    float3 UVW : TEXCOORD0;
-};
+    float3 dir = normalize(WorldPos - CameraPosition.xyz);
+    float4 color = SkyboxTexture.Sample(SamplerLinear, dir);
+    float3 result = color.xyz * Exposure;
 
-float4 PSMain(VSOutput input) : SV_Target0
-{
-    return SkyboxTexture.Sample(SamplerLinear, input.UVW);
+    if (ToneMapMode == 1.0)
+        result = ACESFilm(result);
+
+    return float4(result, 1.0);
 }

@@ -71,14 +71,29 @@ bool D3D11Texture::CreateViews(ID3D11Device* device)
 	if (m_Desc.IsDepthStencil)
 	{
 		D3D11_DEPTH_STENCIL_VIEW_DESC dsvDesc{};
-		dsvDesc.Format = dxgiFormat;
 		dsvDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 		dsvDesc.Texture2D.MipSlice = 0;
 		dsvDesc.Flags = 0;
 
+		if (m_Desc.Format == EFormat::D32_FLOAT)
+			dsvDesc.Format = DXGI_FORMAT_D32_FLOAT;
+		else
+			dsvDesc.Format = dxgiFormat;
+
 		HRESULT hr = device->CreateDepthStencilView(m_Texture, &dsvDesc, &m_DSV);
 		if (FAILED(hr))
 			return false;
+
+		// Create SRV for depth textures so they can be sampled (shadow map)
+		if (m_Desc.Format == EFormat::D32_FLOAT)
+		{
+			D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
+			srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+			srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+			srvDesc.Texture2D.MipLevels = 1;
+			srvDesc.Texture2D.MostDetailedMip = 0;
+			device->CreateShaderResourceView(m_Texture, &srvDesc, &m_SRV);
+		}
 	}
 	else
 	{
@@ -130,7 +145,12 @@ D3D11Texture* D3D11Texture::Create(TextureDesc& desc, ID3D11Device* device)
 	texDesc.Height = desc.Height;
 	texDesc.MipLevels = desc.MipLevels;
 	texDesc.ArraySize = desc.ArraySize;
-	texDesc.Format = ToDXGIFormat(desc.Format);
+
+	// Use typeless format for D32_FLOAT so we can create both DSV and SRV
+	if (desc.Format == EFormat::D32_FLOAT && desc.IsDepthStencil)
+		texDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	else
+		texDesc.Format = ToDXGIFormat(desc.Format);
 
 	if (texDesc.Format == DXGI_FORMAT_UNKNOWN)
 	{
@@ -153,7 +173,7 @@ D3D11Texture* D3D11Texture::Create(TextureDesc& desc, ID3D11Device* device)
 		texDesc.BindFlags |= D3D11_BIND_DEPTH_STENCIL;
 	if (desc.IsUnorderedAccess)
 		texDesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
-	if (!desc.IsDepthStencil)
+	if (!desc.IsDepthStencil || desc.Format == EFormat::D32_FLOAT)
 		texDesc.BindFlags |= D3D11_BIND_SHADER_RESOURCE;
 
 	D3D11_SUBRESOURCE_DATA initData{};

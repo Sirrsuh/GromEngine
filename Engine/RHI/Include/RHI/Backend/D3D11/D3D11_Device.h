@@ -55,6 +55,9 @@ private:
 	ID3D11RenderTargetView* m_BackBufferRTV = nullptr;
 	ID3D11DepthStencilView* m_DepthStencilView = nullptr;
 	ID3D11Texture2D* m_DepthStencilBuffer = nullptr;
+	ID3D11SamplerState* m_LinearSampler = nullptr;
+	ID3D11SamplerState* m_PointSampler = nullptr;
+	ID3D11SamplerState* m_ComparisonSampler = nullptr;
 	Texture* m_BackBufferTexture = nullptr;
 	DeviceDesc m_Desc;
 };

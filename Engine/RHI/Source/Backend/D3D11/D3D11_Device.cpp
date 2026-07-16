@@ -16,6 +16,13 @@ D3D11Device::~D3D11Device()
 	if (m_BackBufferTexture)
 		m_BackBufferTexture->Release();
 
+	if (m_LinearSampler)
+		m_LinearSampler->Release();
+	if (m_PointSampler)
+		m_PointSampler->Release();
+	if (m_ComparisonSampler)
+		m_ComparisonSampler->Release();
+
 	ReleaseBackBufferViews();
 
 	if (m_SwapChain)
@@ -95,6 +102,39 @@ D3D11Device* D3D11Device::Create(DeviceDesc& desc)
 	}
 
 	device->CreateBackBufferViews();
+
+	// Create samplers
+	{
+		D3D11_SAMPLER_DESC sampDesc = {};
+
+		// Linear sampler (s0)
+		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+		sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+		sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+		sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+		sampDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+		sampDesc.MinLOD = 0;
+		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+		device->m_Device->CreateSamplerState(&sampDesc, &device->m_LinearSampler);
+
+		// Point sampler (s1)
+		sampDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT;
+		device->m_Device->CreateSamplerState(&sampDesc, &device->m_PointSampler);
+
+		// Comparison sampler for shadow mapping (s3)
+		sampDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
+		sampDesc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
+		sampDesc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
+		sampDesc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
+		sampDesc.BorderColor[0] = 1.0f;
+		sampDesc.BorderColor[1] = 1.0f;
+		sampDesc.BorderColor[2] = 1.0f;
+		sampDesc.BorderColor[3] = 1.0f;
+		sampDesc.ComparisonFunc = D3D11_COMPARISON_LESS_EQUAL;
+		sampDesc.MinLOD = 0;
+		sampDesc.MaxLOD = D3D11_FLOAT32_MAX;
+		device->m_Device->CreateSamplerState(&sampDesc, &device->m_ComparisonSampler);
+	}
 
 	return device;
 }
@@ -426,6 +466,9 @@ void D3D11Device::Dispatch(u32 groupX, u32 groupY, u32 groupZ)
 
 void D3D11Device::BeginFrame()
 {
+	ID3D11SamplerState* samplers[4] = { m_LinearSampler, m_PointSampler, nullptr, m_ComparisonSampler };
+	m_Context->VSSetSamplers(0, 4, samplers);
+	m_Context->PSSetSamplers(0, 4, samplers);
 }
 
 void D3D11Device::EndFrame()

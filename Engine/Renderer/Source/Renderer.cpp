@@ -73,70 +73,108 @@ bool Renderer::Initialize(Device* device, u32 width, u32 height)
 
     // GBuffer shaders from file
     {
-        GString gbufferVSSrc = ReadShaderFile("Engine/Shaders/HLSL/GBuffer_VS.hlsl");
-        vsDesc.Source = gbufferVSSrc;
+        GString src = ReadShaderFile("Engine/Shaders/HLSL/PBR_VS.hlsl");
+        vsDesc.Source = src;
         m_GBufferVS = Shader::Create(vsDesc, api);
         if (!m_GBufferVS) return false;
 
-        GString gbufferPSSrc = ReadShaderFile("Engine/Shaders/HLSL/GBuffer_PS.hlsl");
-        psDesc.Source = gbufferPSSrc;
+        src = ReadShaderFile("Engine/Shaders/HLSL/PBR_PS.hlsl");
+        psDesc.Source = src;
         m_GBufferPS = Shader::Create(psDesc, api);
         if (!m_GBufferPS) return false;
     }
 
     // Deferred lighting shaders
     {
-        GString defPSSrc = ReadShaderFile("Engine/Shaders/HLSL/DeferredLighting_PS.hlsl");
-        psDesc.Source = defPSSrc;
+        GString src = ReadShaderFile("Engine/Shaders/HLSL/DeferredLighting_PS.hlsl");
+        psDesc.Source = src;
         m_DeferredLightingPS = Shader::Create(psDesc, api);
         if (!m_DeferredLightingPS) return false;
     }
 
     // Skybox shaders from file
     {
-        GString skyboxVSSrc = ReadShaderFile("Engine/Shaders/HLSL/Skybox_VS.hlsl");
-        vsDesc.Source = skyboxVSSrc;
+        GString src = ReadShaderFile("Engine/Shaders/HLSL/Skybox_VS.hlsl");
+        vsDesc.Source = src;
         m_SkyboxVS = Shader::Create(vsDesc, api);
         if (!m_SkyboxVS) return false;
 
-        GString skyboxPSSrc = ReadShaderFile("Engine/Shaders/HLSL/Skybox_PS.hlsl");
-        psDesc.Source = skyboxPSSrc;
+        src = ReadShaderFile("Engine/Shaders/HLSL/Skybox_PS.hlsl");
+        psDesc.Source = src;
         m_SkyboxPS = Shader::Create(psDesc, api);
         if (!m_SkyboxPS) return false;
     }
 
+    // Shadow vertex shader
+    {
+        GString src = ReadShaderFile("Engine/Shaders/HLSL/Shadow_VS.hlsl");
+        vsDesc.Source = src;
+        m_ShadowVS = Shader::Create(vsDesc, api);
+        if (!m_ShadowVS) return false;
+    }
+
+    // Tone map pixel shader
+    {
+        GString src = ReadShaderFile("Engine/Shaders/HLSL/ToneMap_PS.hlsl");
+        psDesc.Source = src;
+        m_ToneMapPS = Shader::Create(psDesc, api);
+        if (!m_ToneMapPS) return false;
+    }
+
     // Constant buffers
     {
-        BufferDesc frameCB = {};
-        frameCB.Size = sizeof(FrameData);
-        frameCB.Stride = 0;
-        frameCB.Type = EBufferType::Constant;
-        frameCB.Usage = EBufferUsage::Dynamic;
-        frameCB.DebugName = "FrameConstants";
-        m_FrameConstantBuffer = Buffer::Create(frameCB, api);
+        BufferDesc cb = {};
+        cb.Size = sizeof(FrameData);
+        cb.Stride = 0;
+        cb.Type = EBufferType::Constant;
+        cb.Usage = EBufferUsage::Dynamic;
+        cb.DebugName = "FrameConstants";
+        m_FrameConstantBuffer = Buffer::Create(cb, api);
         if (!m_FrameConstantBuffer) return false;
     }
 
     {
-        BufferDesc objCB = {};
-        objCB.Size = sizeof(ObjectData);
-        objCB.Stride = 0;
-        objCB.Type = EBufferType::Constant;
-        objCB.Usage = EBufferUsage::Dynamic;
-        objCB.DebugName = "ObjectConstants";
-        m_ObjectConstantBuffer = Buffer::Create(objCB, api);
+        BufferDesc cb = {};
+        cb.Size = sizeof(ObjectData);
+        cb.Stride = 0;
+        cb.Type = EBufferType::Constant;
+        cb.Usage = EBufferUsage::Dynamic;
+        cb.DebugName = "ObjectConstants";
+        m_ObjectConstantBuffer = Buffer::Create(cb, api);
         if (!m_ObjectConstantBuffer) return false;
     }
 
     {
-        BufferDesc lightCB = {};
-        lightCB.Size = sizeof(LightData);
-        lightCB.Stride = 0;
-        lightCB.Type = EBufferType::Constant;
-        lightCB.Usage = EBufferUsage::Dynamic;
-        lightCB.DebugName = "LightConstants";
-        m_LightConstantBuffer = Buffer::Create(lightCB, api);
+        BufferDesc cb = {};
+        cb.Size = sizeof(LightData);
+        cb.Stride = 0;
+        cb.Type = EBufferType::Constant;
+        cb.Usage = EBufferUsage::Dynamic;
+        cb.DebugName = "LightConstants";
+        m_LightConstantBuffer = Buffer::Create(cb, api);
         if (!m_LightConstantBuffer) return false;
+    }
+
+    {
+        BufferDesc cb = {};
+        cb.Size = sizeof(ShadowData);
+        cb.Stride = 0;
+        cb.Type = EBufferType::Constant;
+        cb.Usage = EBufferUsage::Dynamic;
+        cb.DebugName = "ShadowConstants";
+        m_ShadowConstantBuffer = Buffer::Create(cb, api);
+        if (!m_ShadowConstantBuffer) return false;
+    }
+
+    {
+        BufferDesc cb = {};
+        cb.Size = sizeof(ToneMapData);
+        cb.Stride = 0;
+        cb.Type = EBufferType::Constant;
+        cb.Usage = EBufferUsage::Dynamic;
+        cb.DebugName = "ToneMapConstants";
+        m_ToneMapConstantBuffer = Buffer::Create(cb, api);
+        if (!m_ToneMapConstantBuffer) return false;
     }
 
     if (!CreatePipelines()) return false;
@@ -144,6 +182,8 @@ bool Renderer::Initialize(Device* device, u32 width, u32 height)
     m_Initialized = true;
     return true;
 }
+
+static constexpr u32 SHADOW_MAP_SIZE = 2048;
 
 bool Renderer::CreateGBuffer(u32 width, u32 height)
 {
@@ -193,6 +233,26 @@ bool Renderer::CreateGBuffer(u32 width, u32 height)
     dsDesc.DebugName = "GBuffer_DepthStencil";
     m_DepthStencil = Texture::Create(dsDesc, api);
     if (!m_DepthStencil) return false;
+
+    // HDR intermediate RT
+    TextureDesc hdrDesc = {};
+    hdrDesc.Width = width;
+    hdrDesc.Height = height;
+    hdrDesc.Format = EFormat::R16G16B16A16_FLOAT;
+    hdrDesc.IsRenderTarget = true;
+    hdrDesc.DebugName = "HDRTarget";
+    m_HDRTarget = Texture::Create(hdrDesc, api);
+    if (!m_HDRTarget) return false;
+
+    // Shadow map
+    TextureDesc shadowDesc = {};
+    shadowDesc.Width = SHADOW_MAP_SIZE;
+    shadowDesc.Height = SHADOW_MAP_SIZE;
+    shadowDesc.Format = EFormat::D32_FLOAT;
+    shadowDesc.IsDepthStencil = true;
+    shadowDesc.DebugName = "ShadowMap";
+    m_ShadowMap = Texture::Create(shadowDesc, api);
+    if (!m_ShadowMap) return false;
 
     return true;
 }
@@ -266,7 +326,7 @@ bool Renderer::CreatePipelines()
         if (!m_GBufferPipeline) return false;
     }
 
-    // Deferred lighting fullscreen pass (no depth, no cull, additive blend)
+    // Deferred lighting fullscreen pass (no depth, no cull)
     {
         PipelineDesc desc = {};
         desc.VS = m_FullscreenVS;
@@ -309,6 +369,52 @@ bool Renderer::CreatePipelines()
         if (!m_SkyboxPipeline) return false;
     }
 
+    // Shadow pass (depth-only, no color writes, front-face cull)
+    {
+        BufferLayout layout = {};
+        layout.Stride = sizeof(Vertex);
+        layout.Elements.Reserve(1);
+
+        BufferLayout::Element posElem = {};
+        posElem.Name = "POSITION";
+        posElem.Format = EFormat::R32G32B32_FLOAT;
+        posElem.Offset = offsetof(Vertex, Position);
+        posElem.Slot = 0;
+        layout.Elements.Add(posElem);
+
+        PipelineDesc desc = {};
+        desc.VS = m_ShadowVS;
+        desc.PS = nullptr;
+        desc.InputLayout = layout;
+        desc.Rasterizer.CullMode = ECullMode::Front;
+        desc.Rasterizer.DepthClip = true;
+        desc.Rasterizer.DepthBias = 1000;
+        desc.Rasterizer.SlopeScaledDepthBias = 1.0f;
+        desc.DepthStencil.DepthEnable = true;
+        desc.DepthStencil.DepthWrite = true;
+        desc.DepthStencil.DepthFunc = ECompareOp::Less;
+        desc.Blend.Enable = false;
+        desc.Topology = EPrimitiveTopology::TriangleList;
+
+        m_ShadowPipeline = Pipeline::Create(desc, api);
+        if (!m_ShadowPipeline) return false;
+    }
+
+    // Tone map pass
+    {
+        PipelineDesc desc = {};
+        desc.VS = m_FullscreenVS;
+        desc.PS = m_ToneMapPS;
+        desc.Rasterizer.CullMode = ECullMode::None;
+        desc.DepthStencil.DepthEnable = false;
+        desc.DepthStencil.DepthWrite = false;
+        desc.Blend.Enable = false;
+        desc.Topology = EPrimitiveTopology::TriangleList;
+
+        m_ToneMapPipeline = Pipeline::Create(desc, api);
+        if (!m_ToneMapPipeline) return false;
+    }
+
     return true;
 }
 
@@ -319,38 +425,53 @@ void Renderer::Resize(u32 width, u32 height)
     m_Width = width;
     m_Height = height;
 
-    if (m_GBufferAlbedo) { m_GBufferAlbedo->Release(); m_GBufferAlbedo = nullptr; }
-    if (m_GBufferNormal) { m_GBufferNormal->Release(); m_GBufferNormal = nullptr; }
-    if (m_GBufferRMA) { m_GBufferRMA->Release(); m_GBufferRMA = nullptr; }
-    if (m_GBufferEmissive) { m_GBufferEmissive->Release(); m_GBufferEmissive = nullptr; }
-    if (m_DepthStencil) { m_DepthStencil->Release(); m_DepthStencil = nullptr; }
+    auto SafeRelease = [](auto& ptr) { if (ptr) { ptr->Release(); ptr = nullptr; } };
 
+    SafeRelease(m_GBufferAlbedo);
+    SafeRelease(m_GBufferNormal);
+    SafeRelease(m_GBufferRMA);
+    SafeRelease(m_GBufferEmissive);
+    SafeRelease(m_DepthStencil);
+    SafeRelease(m_HDRTarget);
+    // Shadow map not resized
     CreateGBuffer(width, height);
 }
 
 void Renderer::Shutdown()
 {
-    if (m_GBufferAlbedo) { m_GBufferAlbedo->Release(); m_GBufferAlbedo = nullptr; }
-    if (m_GBufferNormal) { m_GBufferNormal->Release(); m_GBufferNormal = nullptr; }
-    if (m_GBufferRMA) { m_GBufferRMA->Release(); m_GBufferRMA = nullptr; }
-    if (m_GBufferEmissive) { m_GBufferEmissive->Release(); m_GBufferEmissive = nullptr; }
-    if (m_DepthStencil) { m_DepthStencil->Release(); m_DepthStencil = nullptr; }
+    auto SafeRelease = [](auto& ptr) { if (ptr) { ptr->Release(); ptr = nullptr; } };
 
-    if (m_GBufferVS) { m_GBufferVS->Release(); m_GBufferVS = nullptr; }
-    if (m_GBufferPS) { m_GBufferPS->Release(); m_GBufferPS = nullptr; }
-    if (m_GBufferPipeline) { m_GBufferPipeline->Release(); m_GBufferPipeline = nullptr; }
+    SafeRelease(m_GBufferAlbedo);
+    SafeRelease(m_GBufferNormal);
+    SafeRelease(m_GBufferRMA);
+    SafeRelease(m_GBufferEmissive);
+    SafeRelease(m_DepthStencil);
+    SafeRelease(m_HDRTarget);
+    SafeRelease(m_ShadowMap);
 
-    if (m_FullscreenVS) { m_FullscreenVS->Release(); m_FullscreenVS = nullptr; }
-    if (m_DeferredLightingPS) { m_DeferredLightingPS->Release(); m_DeferredLightingPS = nullptr; }
-    if (m_DeferredLightingPipeline) { m_DeferredLightingPipeline->Release(); m_DeferredLightingPipeline = nullptr; }
+    SafeRelease(m_GBufferVS);
+    SafeRelease(m_GBufferPS);
+    SafeRelease(m_GBufferPipeline);
 
-    if (m_SkyboxVS) { m_SkyboxVS->Release(); m_SkyboxVS = nullptr; }
-    if (m_SkyboxPS) { m_SkyboxPS->Release(); m_SkyboxPS = nullptr; }
-    if (m_SkyboxPipeline) { m_SkyboxPipeline->Release(); m_SkyboxPipeline = nullptr; }
+    SafeRelease(m_FullscreenVS);
+    SafeRelease(m_DeferredLightingPS);
+    SafeRelease(m_DeferredLightingPipeline);
 
-    if (m_FrameConstantBuffer) { m_FrameConstantBuffer->Release(); m_FrameConstantBuffer = nullptr; }
-    if (m_ObjectConstantBuffer) { m_ObjectConstantBuffer->Release(); m_ObjectConstantBuffer = nullptr; }
-    if (m_LightConstantBuffer) { m_LightConstantBuffer->Release(); m_LightConstantBuffer = nullptr; }
+    SafeRelease(m_SkyboxVS);
+    SafeRelease(m_SkyboxPS);
+    SafeRelease(m_SkyboxPipeline);
+
+    SafeRelease(m_ShadowVS);
+    SafeRelease(m_ShadowPipeline);
+
+    SafeRelease(m_ToneMapPS);
+    SafeRelease(m_ToneMapPipeline);
+
+    SafeRelease(m_FrameConstantBuffer);
+    SafeRelease(m_ObjectConstantBuffer);
+    SafeRelease(m_LightConstantBuffer);
+    SafeRelease(m_ShadowConstantBuffer);
+    SafeRelease(m_ToneMapConstantBuffer);
 }
 
 void Renderer::UpdateFrameConstants(Device* device, Camera* camera, f32 deltaTime)
@@ -399,6 +520,42 @@ void Renderer::UpdateFrameConstants(Device* device, Camera* camera, f32 deltaTim
     device->SetConstantBuffer(m_FrameConstantBuffer, 0, EShaderType::Pixel);
 }
 
+void Renderer::UpdateShadowConstants(Device* device, Scene* scene)
+{
+    Camera* camera = scene->GetActiveCamera();
+    if (!camera) return;
+
+    Light* sun = scene->GetSunLight();
+    if (!sun) return;
+
+    GVec3 sunDir = sun->GetForward();
+    GVec3 camPos = camera->GetWorldPosition();
+
+    f32 shadowDist = 100.0f;
+    GVec3 lightPos = camPos + sunDir * shadowDist;
+
+    GMatrix4x4 lightView = GMatrix4x4::LookAt(lightPos, camPos, GVec3(0.0f, 1.0f, 0.0f));
+    GMatrix4x4 lightProj = GMatrix4x4::Orthographic(100.0f, 100.0f, 0.1f, shadowDist * 2.0f);
+    GMatrix4x4 shadowMatrix = lightView * lightProj;
+
+    ShadowData data;
+    data.ShadowMatrix = shadowMatrix;
+    data.ShadowMapSize = static_cast<f32>(SHADOW_MAP_SIZE);
+    data.ShadowBias = 0.005f;
+    data.ShadowStrength = 1.0f;
+    data.DummyShadow = 0.0f;
+
+    void* mapped = m_ShadowConstantBuffer->Map();
+    if (mapped)
+    {
+        std::memcpy(mapped, &data, sizeof(ShadowData));
+        m_ShadowConstantBuffer->Unmap();
+    }
+
+    device->SetConstantBuffer(m_ShadowConstantBuffer, 4, EShaderType::Vertex);
+    device->SetConstantBuffer(m_ShadowConstantBuffer, 4, EShaderType::Pixel);
+}
+
 void Renderer::UpdateLightConstants(Device* device, Scene* scene)
 {
     LightData data;
@@ -434,6 +591,51 @@ void Renderer::UpdateLightConstants(Device* device, Scene* scene)
     }
 
     device->SetConstantBuffer(m_LightConstantBuffer, 3, EShaderType::Pixel);
+}
+
+void Renderer::RenderShadowPass(Device* device, Scene* scene)
+{
+    device->SetRenderTargets(nullptr, 0, m_ShadowMap);
+    device->ClearDepthStencil(m_ShadowMap, 1.0f, 0);
+
+    ViewportDesc vp = {};
+    vp.Width = static_cast<f32>(SHADOW_MAP_SIZE);
+    vp.Height = static_cast<f32>(SHADOW_MAP_SIZE);
+    vp.MaxDepth = 1.0f;
+    device->SetViewport(vp);
+
+    device->SetPipeline(m_ShadowPipeline);
+
+    const TArray<MeshComponent*>& comps = scene->GetMeshComponents();
+    for (usize i = 0; i < comps.Size(); ++i)
+    {
+        MeshComponent* comp = comps[i];
+        if (!comp || !comp->bVisible || !comp->MeshData) continue;
+
+        ObjectData objData = {};
+        objData.WorldMatrix = GMatrix4x4::Identity();
+
+        void* mapped = m_ObjectConstantBuffer->Map();
+        if (mapped)
+        {
+            std::memcpy(mapped, &objData, sizeof(ObjectData));
+            m_ObjectConstantBuffer->Unmap();
+        }
+
+        device->SetConstantBuffer(m_ObjectConstantBuffer, 1, EShaderType::Vertex);
+
+        Mesh* mesh = comp->MeshData;
+        device->SetVertexBuffer(mesh->GetVertexBuffer(), 0);
+        device->SetIndexBuffer(mesh->GetIndexBuffer());
+
+        const TArray<MeshSection>& sections = mesh->GetSections();
+        u32 sectionIdx = comp->SectionIndex;
+        if (static_cast<usize>(sectionIdx) < sections.Size())
+        {
+            const MeshSection& section = sections[sectionIdx];
+            device->DrawIndexed(section.IndexCount, section.IndexOffset, section.VertexOffset);
+        }
+    }
 }
 
 void Renderer::RenderGBufferPass(Device* device, Scene* scene)
@@ -503,8 +705,7 @@ void Renderer::RenderGBufferPass(Device* device, Scene* scene)
 
 void Renderer::RenderDeferredLightingPass(Device* device)
 {
-    Texture* bb = device->GetBackBuffer();
-    device->SetRenderTargets(&bb, 1, nullptr);
+    device->SetRenderTargets(&m_HDRTarget, 1, nullptr);
 
     ViewportDesc vp2 = {};
     vp2.Width = static_cast<f32>(m_Width);
@@ -519,6 +720,38 @@ void Renderer::RenderDeferredLightingPass(Device* device)
     device->SetShaderResource(m_GBufferRMA, 2, EShaderType::Pixel);
     device->SetShaderResource(m_GBufferEmissive, 3, EShaderType::Pixel);
     device->SetShaderResource(m_DepthStencil, 4, EShaderType::Pixel);
+    device->SetShaderResource(m_ShadowMap, 5, EShaderType::Pixel);
+
+    device->SetConstantBuffer(m_ToneMapConstantBuffer, 5, EShaderType::Pixel);
+
+    device->Draw(3, 0);
+}
+
+void Renderer::RenderToneMapPass(Device* device)
+{
+    ToneMapData tmData = {};
+    tmData.Exposure = 1.0f;
+    tmData.ToneMapMode = 1.0f;
+
+    void* mapped = m_ToneMapConstantBuffer->Map();
+    if (mapped)
+    {
+        std::memcpy(mapped, &tmData, sizeof(ToneMapData));
+        m_ToneMapConstantBuffer->Unmap();
+    }
+
+    Texture* bb = device->GetBackBuffer();
+    device->SetRenderTargets(&bb, 1, nullptr);
+
+    ViewportDesc vp = {};
+    vp.Width = static_cast<f32>(m_Width);
+    vp.Height = static_cast<f32>(m_Height);
+    vp.MaxDepth = 1.0f;
+    device->SetViewport(vp);
+
+    device->SetPipeline(m_ToneMapPipeline);
+    device->SetShaderResource(m_HDRTarget, 0, EShaderType::Pixel);
+    device->SetConstantBuffer(m_ToneMapConstantBuffer, 5, EShaderType::Pixel);
 
     device->Draw(3, 0);
 }
@@ -527,6 +760,9 @@ void Renderer::RenderSkyboxPass(Device* device, Scene* scene)
 {
     Camera* camera = scene->GetActiveCamera();
     if (!camera) return;
+
+    // Render skybox to HDR target
+    device->SetRenderTargets(&m_HDRTarget, 1, nullptr);
 
     ObjectData objData;
     objData.WorldViewProjection = camera->GetViewProjectionMatrix();
@@ -543,6 +779,7 @@ void Renderer::RenderSkyboxPass(Device* device, Scene* scene)
 
     device->SetConstantBuffer(m_ObjectConstantBuffer, 1, EShaderType::Vertex);
     device->SetPipeline(m_SkyboxPipeline);
+    device->SetConstantBuffer(m_ToneMapConstantBuffer, 5, EShaderType::Pixel);
 
     device->Draw(3, 0);
 }
@@ -556,20 +793,19 @@ void Renderer::RenderScene(Device* device, Scene* scene, f32 deltaTime)
 
     UpdateFrameConstants(device, camera, deltaTime);
     UpdateLightConstants(device, scene);
+    UpdateShadowConstants(device, scene);
 
+    RenderShadowPass(device, scene);
     RenderGBufferPass(device, scene);
-
     RenderDeferredLightingPass(device);
-
     RenderSkyboxPass(device, scene);
+    RenderToneMapPass(device);
 }
 
 void Renderer::RenderToBackbuffer(Device* device)
 {
-    Texture* backBuffer = device->GetBackBuffer();
-    if (!backBuffer) return;
-
-    device->SetRenderTargets(&backBuffer, 1, nullptr);
+    // All rendering now goes through RenderScene -> RenderToneMapPass
+    (void)device;
 }
 
 } // namespace grom
