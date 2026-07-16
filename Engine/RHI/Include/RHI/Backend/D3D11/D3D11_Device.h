@@ -33,6 +33,7 @@ public:
 	void SetVertexBuffer(Buffer* buffer, u32 slot) override;
 	void SetIndexBuffer(Buffer* buffer) override;
 	void SetConstantBuffer(Buffer* buffer, u32 slot, EShaderType shader) override;
+	void SetRenderTargets(Texture* const* renderTargets, u32 count, Texture* depthStencil) override;
 	void SetShaderResource(Texture* texture, u32 slot, EShaderType shader) override;
 	void Draw(u32 vertexCount, u32 startVertex) override;
 	void DrawIndexed(u32 indexCount, u32 startIndex, u32 baseVertex) override;

@@ -7,6 +7,8 @@
 #include <RHI/RHI.h>
 #include <Jobs/JobSystem.h>
 #include <UI/UICanvas.h>
+#include <Renderer/Renderer.h>
+#include <Scene/Scene.h>
 
 namespace grom {
 
@@ -28,9 +30,12 @@ private:
     Window* m_Window;
     Device* m_Device;
     UICanvas* m_Canvas;
+    Renderer* m_Renderer;
+    Scene* m_Scene;
     InputState m_InputState;
     bool m_Running;
     f64 m_LastFrameTime;
+    f32 m_DeltaTime;
     bool m_PrevMouseDown;
 };
 

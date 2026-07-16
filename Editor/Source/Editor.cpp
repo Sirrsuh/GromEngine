@@ -1,4 +1,8 @@
 #include <Editor/Editor.h>
+#include <Scene/Camera.h>
+#include <Scene/Light.h>
+#include <Scene/Mesh.h>
+#include <Scene/Model.h>
 
 namespace grom
 {
@@ -13,8 +17,11 @@ Editor::Editor()
     : m_Window(nullptr)
     , m_Device(nullptr)
     , m_Canvas(nullptr)
+    , m_Renderer(nullptr)
+    , m_Scene(nullptr)
     , m_Running(false)
     , m_LastFrameTime(0.0)
+    , m_DeltaTime(0.0f)
     , m_PrevMouseDown(false)
 {
 }
@@ -42,6 +49,21 @@ bool Editor::Initialize()
     m_Device = Device::Create(deviceDesc);
     if (m_Device)
         m_Device->AddRef();
+
+    m_Scene = new Scene();
+    Camera* cam = new Camera("EditorCamera");
+    cam->SetPosition(GVec3(0.0f, 2.0f, -5.0f));
+    cam->SetAspectRatio(1920.0f / 1080.0f);
+    m_Scene->AddCamera(cam);
+    m_Scene->SetActiveCamera(cam);
+
+    Light* sun = new Light("Sun");
+    sun->SetLightType(ELightType::Directional);
+    sun->SetIntensity(2.0f);
+    m_Scene->AddLight(sun);
+
+    m_Renderer = new Renderer();
+    m_Renderer->Initialize(m_Device, 1920, 1080);
 
     m_Canvas = new UICanvas();
     m_Canvas->Initialize(m_Device, 1920, 1080);
@@ -76,6 +98,7 @@ void Editor::Run()
             s_HasResize = false;
         }
 
+        m_DeltaTime = dt;
         ProcessInput();
         Update(dt);
         Render();
@@ -102,6 +125,8 @@ void Editor::ProcessInput()
 
 void Editor::Update(f32 deltaTime)
 {
+    if (m_Scene)
+        m_Scene->Update(deltaTime);
     m_Canvas->Update(deltaTime);
 }
 
@@ -109,9 +134,18 @@ void Editor::Render()
 {
     m_Device->BeginFrame();
 
-    f32 clearColor[4] = { 0.15f, 0.15f, 0.15f, 1.0f };
-    m_Device->ClearRenderTarget(nullptr, clearColor);
-    m_Device->ClearDepthStencil(nullptr, 1.0f, 0);
+    if (m_Scene)
+    {
+        m_Renderer->RenderScene(m_Device, m_Scene, m_DeltaTime);
+    }
+    else
+    {
+        f32 clearColor[4] = { 0.15f, 0.15f, 0.15f, 1.0f };
+        m_Device->ClearRenderTarget(nullptr, clearColor);
+        m_Device->ClearDepthStencil(nullptr, 1.0f, 0);
+    }
+
+    m_Renderer->RenderToBackbuffer(m_Device);
 
     m_Canvas->Render(m_Device);
 
@@ -122,6 +156,8 @@ void Editor::HandleResize(u32 w, u32 h)
 {
     if (m_Device)
         m_Device->Resize(w, h);
+    if (m_Renderer)
+        m_Renderer->Resize(w, h);
     if (m_Canvas)
         m_Canvas->Resize(w, h);
 }

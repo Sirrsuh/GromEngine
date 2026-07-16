@@ -368,6 +368,28 @@ void D3D11Device::SetConstantBuffer(Buffer* buffer, u32 slot, EShaderType shader
 	}
 }
 
+void D3D11Device::SetRenderTargets(Texture* const* renderTargets, u32 count, Texture* depthStencil)
+{
+    ID3D11RenderTargetView* rtvs[8] = {};
+    for (u32 i = 0; i < count && i < 8; ++i)
+    {
+        if (renderTargets[i])
+        {
+            D3D11Texture* tex = static_cast<D3D11Texture*>(renderTargets[i]);
+            rtvs[i] = tex->GetRTV();
+        }
+    }
+
+    ID3D11DepthStencilView* dsv = nullptr;
+    if (depthStencil)
+    {
+        D3D11Texture* dsTex = static_cast<D3D11Texture*>(depthStencil);
+        dsv = dsTex->GetDSV();
+    }
+
+    m_Context->OMSetRenderTargets(count, rtvs, dsv);
+}
+
 void D3D11Device::SetShaderResource(Texture* texture, u32 slot, EShaderType shader)
 {
 	if (!texture)

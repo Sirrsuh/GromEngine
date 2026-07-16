@@ -39,6 +39,7 @@ public:
 	virtual void SetVertexBuffer(Buffer* buffer, u32 slot) = 0;
 	virtual void SetIndexBuffer(Buffer* buffer) = 0;
 	virtual void SetConstantBuffer(Buffer* buffer, u32 slot, EShaderType shader) = 0;
+	virtual void SetRenderTargets(Texture* const* renderTargets, u32 count, Texture* depthStencil) = 0;
 	virtual void SetShaderResource(Texture* texture, u32 slot, EShaderType shader) = 0;
 	virtual void Draw(u32 vertexCount, u32 startVertex = 0) = 0;
 	virtual void DrawIndexed(u32 indexCount, u32 startIndex = 0, u32 baseVertex = 0) = 0;
