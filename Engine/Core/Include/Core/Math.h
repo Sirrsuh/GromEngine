@@ -115,6 +115,8 @@ struct GVec4
     GVec3 XYZ() const { return { x, y, z }; }
 };
 
+struct GQuat;
+
 struct GMatrix4x4
 {
     f32 m[4][4];
@@ -208,6 +210,17 @@ struct GMatrix4x4
         return Scale(s.x, s.y, s.z);
     }
 
+    static GMatrix4x4 Orthographic(f32 width, f32 height, f32 zNear, f32 zFar)
+    {
+        GMatrix4x4 mat = {};
+        mat.m[0][0] = 2.0f / width;
+        mat.m[1][1] = 2.0f / height;
+        mat.m[2][2] = 1.0f / (zFar - zNear);
+        mat.m[3][2] = -zNear / (zFar - zNear);
+        mat.m[3][3] = 1.0f;
+        return mat;
+    }
+
     static GMatrix4x4 Perspective(f32 fovY, f32 aspect, f32 zNear, f32 zFar)
     {
         GMatrix4x4 mat = {};
@@ -279,6 +292,13 @@ struct GMatrix4x4
     {
         return Multiply(other);
     }
+
+    GVec4 GetRow(u32 row) const
+    {
+        return { m[row][0], m[row][1], m[row][2], m[row][3] };
+    }
+
+    void Decompose(GVec3& pos, GQuat& rot, GVec3& scale) const;
 
     GVec4 operator*(const GVec4& v) const
     {

@@ -60,4 +60,65 @@ GMatrix4x4 GMatrix4x4::Inverse() const
     return result;
 }
 
+void GMatrix4x4::Decompose(GVec3& pos, GQuat& rot, GVec3& scale) const
+{
+    pos.x = m[3][0];
+    pos.y = m[3][1];
+    pos.z = m[3][2];
+
+    scale.x = GVec3(m[0][0], m[1][0], m[2][0]).Length();
+    scale.y = GVec3(m[0][1], m[1][1], m[2][1]).Length();
+    scale.z = GVec3(m[0][2], m[1][2], m[2][2]).Length();
+
+    GMatrix4x4 rotMat;
+    for (u32 col = 0; col < 3; ++col)
+    {
+        for (u32 row = 0; row < 3; ++row)
+        {
+            rotMat.m[row][col] = m[row][col] / (col == 0 ? scale.x : (col == 1 ? scale.y : scale.z));
+        }
+    }
+    rotMat.m[0][3] = 0.0f;
+    rotMat.m[1][3] = 0.0f;
+    rotMat.m[2][3] = 0.0f;
+    rotMat.m[3][0] = 0.0f;
+    rotMat.m[3][1] = 0.0f;
+    rotMat.m[3][2] = 0.0f;
+    rotMat.m[3][3] = 1.0f;
+
+    f32 tr = rotMat.m[0][0] + rotMat.m[1][1] + rotMat.m[2][2];
+    if (tr > 0.0f)
+    {
+        f32 s = std::sqrt(tr + 1.0f) * 2.0f;
+        rot.w = 0.25f * s;
+        rot.x = (rotMat.m[1][2] - rotMat.m[2][1]) / s;
+        rot.y = (rotMat.m[2][0] - rotMat.m[0][2]) / s;
+        rot.z = (rotMat.m[0][1] - rotMat.m[1][0]) / s;
+    }
+    else if (rotMat.m[0][0] > rotMat.m[1][1] && rotMat.m[0][0] > rotMat.m[2][2])
+    {
+        f32 s = std::sqrt(1.0f + rotMat.m[0][0] - rotMat.m[1][1] - rotMat.m[2][2]) * 2.0f;
+        rot.w = (rotMat.m[1][2] - rotMat.m[2][1]) / s;
+        rot.x = 0.25f * s;
+        rot.y = (rotMat.m[0][1] + rotMat.m[1][0]) / s;
+        rot.z = (rotMat.m[0][2] + rotMat.m[2][0]) / s;
+    }
+    else if (rotMat.m[1][1] > rotMat.m[2][2])
+    {
+        f32 s = std::sqrt(1.0f + rotMat.m[1][1] - rotMat.m[0][0] - rotMat.m[2][2]) * 2.0f;
+        rot.w = (rotMat.m[2][0] - rotMat.m[0][2]) / s;
+        rot.x = (rotMat.m[0][1] + rotMat.m[1][0]) / s;
+        rot.y = 0.25f * s;
+        rot.z = (rotMat.m[1][2] + rotMat.m[2][1]) / s;
+    }
+    else
+    {
+        f32 s = std::sqrt(1.0f + rotMat.m[2][2] - rotMat.m[0][0] - rotMat.m[1][1]) * 2.0f;
+        rot.w = (rotMat.m[0][1] - rotMat.m[1][0]) / s;
+        rot.x = (rotMat.m[0][2] + rotMat.m[2][0]) / s;
+        rot.y = (rotMat.m[1][2] + rotMat.m[2][1]) / s;
+        rot.z = 0.25f * s;
+    }
+}
+
 }
