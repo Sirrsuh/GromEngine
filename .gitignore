@@ -1,0 +1,44 @@
+# Build outputs
+Build*/
+Bin/
+Lib/
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.obj
+*.dll
+
+# IDE
+.vs/
+*.sln
+*.suo
+*.vcxproj*
+*.user
+*.filters
+*.opensdf
+*.sdf
+*.cachefile
+Debug/
+Release/
+x64/
+Win32/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+*.cmake
+!CMakeLists.txt
+!*.cmake.in
+
+# Editor
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

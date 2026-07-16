@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(GromAssets LANGUAGES CXX)
+add_library(GromAssets STATIC Source/Stub.cpp)
+target_include_directories(GromAssets PUBLIC Include)
+target_link_libraries(GromAssets PUBLIC GromCore GromJobs)
+target_compile_features(GromAssets PUBLIC cxx_std_20)

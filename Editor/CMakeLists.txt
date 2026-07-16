@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(GromEditor LANGUAGES CXX)
+add_executable(GromEditor Source/main.cpp Source/Editor.cpp)
+target_include_directories(GromEditor PUBLIC Include)
+target_link_libraries(GromEditor PRIVATE GromRHI GromPlatform GromUI GromFramework GromCore)
+target_compile_features(GromEditor PRIVATE cxx_std_20)

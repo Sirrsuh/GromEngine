@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(GromGame LANGUAGES CXX)
+add_executable(GromGame Source/main.cpp Source/Game.cpp)
+target_include_directories(GromGame PUBLIC Include ${CMAKE_SOURCE_DIR}/Engine/Platform/Source/Win32)
+target_link_libraries(GromGame PRIVATE GromRHI GromPlatform GromFramework GromCore)
+target_compile_features(GromGame PRIVATE cxx_std_20)

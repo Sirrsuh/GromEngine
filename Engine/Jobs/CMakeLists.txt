@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.20)
+project(GromJobs LANGUAGES CXX)
+add_library(GromJobs STATIC Source/JobSystem.cpp Source/Stub.cpp)
+target_include_directories(GromJobs PUBLIC Include)
+target_link_libraries(GromJobs PUBLIC GromCore)
+target_compile_features(GromJobs PUBLIC cxx_std_20)
