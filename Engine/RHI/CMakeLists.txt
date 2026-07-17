@@ -29,6 +29,14 @@ endif()
 
 if(GROM_RHI_D3D12)
     target_compile_definitions(GromRHI PUBLIC GROM_RHI_D3D12=1)
+    target_sources(GromRHI PRIVATE
+        Source/Backend/D3D12/D3D12_Device.cpp
+        Source/Backend/D3D12/D3D12_Shader.cpp
+        Source/Backend/D3D12/D3D12_Buffer.cpp
+        Source/Backend/D3D12/D3D12_Texture.cpp
+        Source/Backend/D3D12/D3D12_Pipeline.cpp
+    )
+    target_link_libraries(GromRHI PUBLIC d3d12.lib dxgi.lib d3dcompiler.lib)
 endif()
 
 if(GROM_RHI_VULKAN)

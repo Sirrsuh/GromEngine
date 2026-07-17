@@ -24,8 +24,11 @@ public:
 
     Microsoft::WRL::ComPtr<ID3D12Resource> GetResource() const { return m_Resource; }
     D3D12_GPU_VIRTUAL_ADDRESS GetGPUVirtualAddress() const { return m_Resource->GetGPUVirtualAddress(); }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetCBV() const { return m_CBV; }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetSRV() const { return m_SRV; }
+    D3D12_CPU_DESCRIPTOR_HANDLE GetUAV() const { return m_UAV; }
 
-    static D3D12Buffer* Create(BufferDesc& desc, ID3D12Device* device);
+    static D3D12Buffer* Create(BufferDesc& desc, ID3D12Device* device, ID3D12GraphicsCommandList* cmdList);
 
 private:
     Microsoft::WRL::ComPtr<ID3D12Resource> m_Resource;
@@ -33,6 +36,10 @@ private:
     BufferDesc m_Desc;
     void* m_MappedData = nullptr;
     u32 m_AlignedSize = 0;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE m_CBV = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_SRV = {};
+    D3D12_CPU_DESCRIPTOR_HANDLE m_UAV = {};
 };
 
 } // namespace grom

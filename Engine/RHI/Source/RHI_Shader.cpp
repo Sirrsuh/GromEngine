@@ -6,6 +6,11 @@
 #include "RHI/Backend/D3D11/D3D11_Device.h"
 #endif
 
+#ifdef GROM_RHI_D3D12
+#include "RHI/Backend/D3D12/D3D12_Shader.h"
+#include "RHI/Backend/D3D12/D3D12_Device.h"
+#endif
+
 #ifdef GROM_RHI_VULKAN
 #include "RHI/Backend/Vulkan/Vulkan_Shader.h"
 #endif
@@ -31,7 +36,11 @@ Shader* Shader::Create(ShaderDesc& desc, ERenderAPI api)
 #endif
 #ifdef GROM_RHI_D3D12
 		case ERenderAPI::D3D12:
-			return nullptr;
+		{
+			Device* dev = Device::GetActiveDevice();
+			if (!dev) return nullptr;
+			return D3D12Shader::Create(desc);
+		}
 #endif
 #ifdef GROM_RHI_VULKAN
 		case ERenderAPI::Vulkan:

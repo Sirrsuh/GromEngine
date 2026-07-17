@@ -12,6 +12,8 @@
 
 namespace grom {
 
+class D3D12Device;
+
 class D3D12Pipeline : public Pipeline
 {
 public:
@@ -21,8 +23,8 @@ public:
     void* GetHandle() override;
     PipelineDesc& GetDesc() override;
 
-    ID3D12PipelineState* GetPSO() const { return m_PSO.Get(); }
-    ID3D12RootSignature* GetRootSignature() const { return m_RootSignature.Get(); }
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> GetPSO() const { return m_PSO; }
+    Microsoft::WRL::ComPtr<ID3D12RootSignature> GetRootSignature() const { return m_RootSignature; }
 
     static D3D12Pipeline* Create(PipelineDesc& desc, ID3D12Device* device, D3D12Device* d3d12Device);
 

@@ -5,6 +5,11 @@
 #include "RHI/Backend/D3D11/D3D11_Device.h"
 #endif
 
+#ifdef GROM_RHI_D3D12
+#include "RHI/Backend/D3D12/D3D12_Pipeline.h"
+#include "RHI/Backend/D3D12/D3D12_Device.h"
+#endif
+
 #ifdef GROM_RHI_VULKAN
 #include "RHI/Backend/Vulkan/Vulkan_Pipeline.h"
 #include "RHI/Backend/Vulkan/Vulkan_Device.h"
@@ -31,7 +36,15 @@ Pipeline* Pipeline::Create(PipelineDesc& desc, ERenderAPI api)
 #endif
 #ifdef GROM_RHI_D3D12
 		case ERenderAPI::D3D12:
-			return nullptr;
+		{
+			Device* dev = Device::GetActiveDevice();
+			if (!dev) return nullptr;
+			D3D12Device* d3d12Dev = static_cast<D3D12Device*>(dev);
+			if (!d3d12Dev) return nullptr;
+			ID3D12Device* d3d12Device = d3d12Dev->GetD3D12Device().Get();
+			if (!d3d12Device) return nullptr;
+			return D3D12Pipeline::Create(desc, d3d12Device, d3d12Dev);
+		}
 #endif
 #ifdef GROM_RHI_VULKAN
 		case ERenderAPI::Vulkan:

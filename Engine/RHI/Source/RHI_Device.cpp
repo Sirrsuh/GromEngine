@@ -4,6 +4,10 @@
 #include "RHI/Backend/D3D11/D3D11_Device.h"
 #endif
 
+#ifdef GROM_RHI_D3D12
+#include "RHI/Backend/D3D12/D3D12_Device.h"
+#endif
+
 #ifdef GROM_RHI_VULKAN
 #include "RHI/Backend/Vulkan/Vulkan_Device.h"
 #endif
@@ -31,7 +35,10 @@ Device* Device::Create(DeviceDesc& desc)
 #endif
 #ifdef GROM_RHI_D3D12
 		case ERenderAPI::D3D12:
-			return nullptr;
+		{
+			g_ActiveDevice = D3D12Device::Create(desc);
+			return g_ActiveDevice;
+		}
 #endif
 #ifdef GROM_RHI_VULKAN
 		case ERenderAPI::Vulkan:

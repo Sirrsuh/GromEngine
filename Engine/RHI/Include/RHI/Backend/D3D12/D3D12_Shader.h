@@ -6,6 +6,7 @@
 #endif
 #include <Windows.h>
 #include <d3d12.h>
+#include <d3dcompiler.h>
 #include <wrl/client.h>
 
 namespace grom {
@@ -20,6 +21,7 @@ public:
     ShaderDesc& GetDesc() override;
 
     Microsoft::WRL::ComPtr<ID3DBlob> GetBytecode() const { return m_Bytecode; }
+    EShaderType GetShaderType() const { return m_Desc.Type; }
 
     static D3D12Shader* Create(ShaderDesc& desc);
 

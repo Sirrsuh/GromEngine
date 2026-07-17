@@ -6,6 +6,8 @@
 #include <cassert>
 #include <vector>
 
+using Microsoft::WRL::ComPtr;
+
 namespace grom {
 
 D3D12Device::~D3D12Device()
@@ -13,48 +15,27 @@ D3D12Device::~D3D12Device()
     WaitForGpu();
 }
 
-ERenderAPI D3D12Device::GetAPI() { return ERenderAPI::D3D12; }
-void* D3D12Device::GetNativeDevice() { return m_Device.Get(); }
-void* D3D12Device::GetNativeContext() { return m_CommandList.Get(); }
-DeviceDesc& D3D12Device::GetDesc() { return m_Desc; }
-
-D3D12Device* D3D12Device::Create(DeviceDesc& desc)
-{
-    D3D12Device* device = new D3D12Device();
-    device->m_Desc = desc;
-
-    if (!device->CreateDevice()) { delete device; return nullptr; }
-    if (!device->CreateCommandQueue()) { delete device; return nullptr; }
-    if (!device->CreateSwapChain()) { delete device; return nullptr; }
-    if (!device->CreateDescriptorHeaps()) { delete device; return nullptr; }
-    if (!device->CreateCommandAllocators()) { delete device; return nullptr; }
-    if (!device->CreateCommandList()) { delete device; return nullptr; }
-    if (!device->CreateFence()) { delete device; return nullptr; }
-    device->CreateRenderTargetViews();
-
-    return device;
-}
-
-bool D3D12Device::CreateDevice()
+bool D3D12Device::CreateFactory()
 {
     UINT dxgiFactoryFlags = 0;
 #ifdef _DEBUG
-    Microsoft::WRL::ComPtr<ID3D12Debug> debugController;
+    ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController)))) {
         debugController->EnableDebugLayer();
         dxgiFactoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
     }
 #endif
 
-    Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
-    if (FAILED(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory))))
-        return false;
+    return SUCCEEDED(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&m_Factory)));
+}
 
-    Microsoft::WRL::ComPtr<IDXGIAdapter1> hardwareAdapter;
-    for (UINT adapterIndex = 0; DXGI_ERROR_NOT_FOUND != factory->EnumAdapters1(adapterIndex, &hardwareAdapter); ++adapterIndex) {
-        DXGI_ADAPTER_DESC1 desc;
-        hardwareAdapter->GetDesc1(&desc);
-        if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
+bool D3D12Device::CreateDevice()
+{
+    ComPtr<IDXGIAdapter1> hardwareAdapter;
+    for (UINT adapterIndex = 0; DXGI_ERROR_NOT_FOUND != m_Factory->EnumAdapters1(adapterIndex, &hardwareAdapter); ++adapterIndex) {
+        DXGI_ADAPTER_DESC1 adapterDesc;
+        hardwareAdapter->GetDesc1(&adapterDesc);
+        if (adapterDesc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
             continue;
 
         if (SUCCEEDED(D3D12CreateDevice(hardwareAdapter.Get(), D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), nullptr)))
@@ -83,9 +64,6 @@ bool D3D12Device::CreateCommandQueue()
 
 bool D3D12Device::CreateSwapChain()
 {
-    Microsoft::WRL::ComPtr<IDXGIFactory4> factory;
-    CreateDXGIFactory2(0, IID_PPV_ARGS(&factory));
-
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
     swapChainDesc.BufferCount = m_NumFrames;
     swapChainDesc.Width = m_Desc.Width;
@@ -95,8 +73,8 @@ bool D3D12Device::CreateSwapChain()
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     swapChainDesc.SampleDesc.Count = 1;
 
-    Microsoft::WRL::ComPtr<IDXGISwapChain1> swapChain;
-    if (FAILED(factory->CreateSwapChainForHwnd(m_CommandQueue.Get(), static_cast<HWND>(m_Desc.WindowHandle), &swapChainDesc, nullptr, nullptr, &swapChain)))
+    ComPtr<IDXGISwapChain1> swapChain;
+    if (FAILED(m_Factory->CreateSwapChainForHwnd(m_CommandQueue.Get(), static_cast<HWND>(m_Desc.WindowHandle), &swapChainDesc, nullptr, nullptr, &swapChain)))
         return false;
 
     if (FAILED(swapChain.As(&m_SwapChain)))
@@ -159,12 +137,9 @@ bool D3D12Device::CreateFence()
 void D3D12Device::CreateRenderTargetViews()
 {
     m_RenderTargets.resize(m_NumFrames);
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_RtvHeap->GetCPUDescriptorHandleForHeapStart());
     for (UINT i = 0; i < m_NumFrames; ++i) {
         if (FAILED(m_SwapChain->GetBuffer(i, IID_PPV_ARGS(&m_RenderTargets[i]))))
             return;
-        m_Device->CreateRenderTargetView(m_RenderTargets[i].Get(), nullptr, rtvHandle);
-        rtvHandle.Offset(1, m_RtvDescriptorSize);
     }
 
     D3D12_RESOURCE_DESC depthDesc = {};
@@ -184,9 +159,6 @@ void D3D12Device::CreateRenderTargetViews()
 
     m_Device->CreateCommittedResource(&heapProps, D3D12_HEAP_FLAG_NONE, &depthDesc,
         D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue, IID_PPV_ARGS(&m_DepthStencilBuffer));
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_DsvHeap->GetCPUDescriptorHandleForHeapStart());
-    m_Device->CreateDepthStencilView(m_DepthStencilBuffer.Get(), nullptr, dsvHandle);
 
     m_Viewport = { 0.0f, 0.0f, static_cast<float>(m_Desc.Width), static_cast<float>(m_Desc.Height), 0.0f, 1.0f };
     m_ScissorRect = { 0, 0, static_cast<LONG>(m_Desc.Width), static_cast<LONG>(m_Desc.Height) };
@@ -225,22 +197,22 @@ void D3D12Device::Resize(u32 w, u32 h)
 
 void D3D12Device::ClearRenderTarget(Texture* rt, const f32 color[4])
 {
-    // Implementation would use command list to clear RTV
+    (void)rt; (void)color;
 }
 
 void D3D12Device::ClearDepthStencil(Texture* ds, f32 depth, u8 stencil)
 {
-    // Implementation would use command list to clear DSV
+    (void)ds; (void)depth; (void)stencil;
 }
 
 void D3D12Device::SetViewport(ViewportDesc& vp)
 {
-    m_Viewport = { vp.X, vp.Y, vp.Width, vp.Height, vp.MinDepth, vp.MaxDepth };
+    m_Viewport = { vp.TopLeftX, vp.TopLeftY, vp.Width, vp.Height, vp.MinDepth, vp.MaxDepth };
 }
 
 void D3D12Device::SetScissorRect(Rect2D& rect)
 {
-    m_ScissorRect = { rect.X, rect.Y, rect.X + rect.Width, rect.Y + rect.Height };
+    m_ScissorRect = { rect.Left, rect.Top, rect.Right, rect.Bottom };
 }
 
 void D3D12Device::SetPipeline(Pipeline* pipeline)
@@ -254,59 +226,59 @@ void D3D12Device::SetPipeline(Pipeline* pipeline)
 
 void D3D12Device::SetVertexBuffer(Buffer* buffer, u32 slot)
 {
-    // Implementation
+    (void)buffer; (void)slot;
 }
 
 void D3D12Device::SetIndexBuffer(Buffer* buffer)
 {
-    // Implementation
+    (void)buffer;
 }
 
 void D3D12Device::SetConstantBuffer(Buffer* buffer, u32 slot, EShaderType shader)
 {
-    // Implementation
+    (void)buffer; (void)slot; (void)shader;
 }
 
 void D3D12Device::SetRenderTargets(Texture* const* renderTargets, u32 count, Texture* depthStencil)
 {
-    // Implementation
+    (void)renderTargets; (void)count; (void)depthStencil;
 }
 
 void D3D12Device::SetShaderResource(Texture* texture, u32 slot, EShaderType shader)
 {
-    // Implementation
+    (void)texture; (void)slot; (void)shader;
 }
 
 void D3D12Device::SetUnorderedAccessView(Texture* texture, u32 slot, EShaderType shader)
 {
-    // Implementation
+    (void)texture; (void)slot; (void)shader;
 }
 
 void D3D12Device::SetBlendState(bool enable, EBlendFactor srcFactor, EBlendFactor dstFactor)
 {
-    // Implementation
+    (void)enable; (void)srcFactor; (void)dstFactor;
 }
 
 void D3D12Device::Draw(u32 vertexCount, u32 startVertex)
 {
-    // Implementation
+    m_CommandList->DrawInstanced(vertexCount, 1, startVertex, 0);
 }
 
 void D3D12Device::DrawIndexed(u32 indexCount, u32 startIndex, u32 baseVertex)
 {
-    // Implementation
+    m_CommandList->DrawIndexedInstanced(indexCount, 1, startIndex, baseVertex, 0);
 }
 
 void D3D12Device::Dispatch(u32 groupX, u32 groupY, u32 groupZ)
 {
-    // Implementation
+    m_CommandList->Dispatch(groupX, groupY, groupZ);
 }
 
 void D3D12Device::BeginFrame()
 {
     m_CommandAllocator->Reset();
-    m_CommandList->Reset(m_CommandAllocator.Get(), m_CurrentPipelineState);
-    m_CommandList->SetGraphicsRootSignature(m_CurrentRootSignature);
+    m_CommandList->Reset(m_CommandAllocator.Get(), m_CurrentPipelineState.Get());
+    m_CommandList->SetGraphicsRootSignature(m_CurrentRootSignature.Get());
     m_CommandList->RSSetViewports(1, &m_Viewport);
     m_CommandList->RSSetScissorRects(1, &m_ScissorRect);
 }
@@ -321,6 +293,24 @@ void D3D12Device::EndFrame()
 Texture* D3D12Device::GetBackBuffer()
 {
     return m_BackBufferTexture;
+}
+
+D3D12Device* D3D12Device::Create(DeviceDesc& desc)
+{
+    D3D12Device* device = new D3D12Device();
+    device->m_Desc = desc;
+
+    if (!device->CreateFactory()) { delete device; return nullptr; }
+    if (!device->CreateDevice()) { delete device; return nullptr; }
+    if (!device->CreateCommandQueue()) { delete device; return nullptr; }
+    if (!device->CreateSwapChain()) { delete device; return nullptr; }
+    if (!device->CreateDescriptorHeaps()) { delete device; return nullptr; }
+    if (!device->CreateCommandAllocators()) { delete device; return nullptr; }
+    if (!device->CreateCommandList()) { delete device; return nullptr; }
+    if (!device->CreateFence()) { delete device; return nullptr; }
+    device->CreateRenderTargetViews();
+
+    return device;
 }
 
 } // namespace grom
