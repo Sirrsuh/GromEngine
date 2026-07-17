@@ -15,6 +15,13 @@ elseif(GROM_PLATFORM_LINUX)
         Source/Linux/Linux_Window.cpp
         Source/Linux/Linux_Platform.cpp
     )
+    find_package(X11 REQUIRED)
+    target_link_libraries(GromPlatform PUBLIC ${X11_LIBRARIES})
+elseif(GROM_PLATFORM_MACOS)
+    target_sources(GromPlatform PRIVATE
+        Source/macOS/macOS_Window.cpp
+        Source/macOS/macOS_Platform.cpp
+    )
 endif()
 
 target_link_libraries(GromPlatform PUBLIC GromCore)
