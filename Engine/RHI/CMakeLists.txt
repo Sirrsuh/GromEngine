@@ -49,6 +49,10 @@ if(GROM_RHI_VULKAN)
         Source/Backend/Vulkan/Vulkan_Pipeline.cpp
     )
     find_package(Vulkan REQUIRED)
+    
+    # VMA (Vulkan Memory Allocator) - header only, VMA_IMPLEMENTATION only in Vulkan_Device.cpp
+    target_include_directories(GromRHI PRIVATE ${CMAKE_SOURCE_DIR}/ThirdParty/VMA/include)
+    
     target_link_libraries(GromRHI PUBLIC Vulkan::Vulkan)
 endif()
 

@@ -8,8 +8,7 @@ VulkanTexture::~VulkanTexture()
     if (m_UAVView) vkDestroyImageView(m_Device, m_UAVView, nullptr);
     if (m_DSView) vkDestroyImageView(m_Device, m_DSView, nullptr);
     if (m_View) vkDestroyImageView(m_Device, m_View, nullptr);
-    if (m_Image) vkDestroyImage(m_Device, m_Image, nullptr);
-    if (m_Memory) vkFreeMemory(m_Device, m_Memory, nullptr);
+    if (m_Image && m_Allocation) vmaDestroyImage(m_Allocator, m_Image, m_Allocation);
 }
 
 void* VulkanTexture::GetHandle() { return m_Image; }
@@ -49,7 +48,7 @@ static VkImageAspectFlags GetAspect(const TextureDesc& desc)
     return VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
-VulkanTexture* VulkanTexture::Create(TextureDesc& desc, VkDevice device, VkPhysicalDevice physDevice)
+VulkanTexture* VulkanTexture::Create(TextureDesc& desc, VkDevice device, VmaAllocator allocator)
 {
     VkFormat vkFormat = ConvertFormat(desc.Format);
     if (vkFormat == VK_FORMAT_UNDEFINED)
@@ -69,52 +68,20 @@ VulkanTexture* VulkanTexture::Create(TextureDesc& desc, VkDevice device, VkPhysi
     imageInfo.usage = usage;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
     VkImage image;
-    if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS)
+    VmaAllocation allocation;
+    if (vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &allocation, nullptr) != VK_SUCCESS)
         return nullptr;
-
-    VkMemoryRequirements memReqs;
-    vkGetImageMemoryRequirements(device, image, &memReqs);
-
-    VkPhysicalDeviceMemoryProperties physMemProps;
-    vkGetPhysicalDeviceMemoryProperties(physDevice, &physMemProps);
-
-    u32 memoryType = UINT32_MAX;
-    for (u32 i = 0; i < physMemProps.memoryTypeCount; ++i)
-    {
-        if ((memReqs.memoryTypeBits & (1 << i)) &&
-            (physMemProps.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
-        {
-            memoryType = i;
-            break;
-        }
-    }
-
-    if (memoryType == UINT32_MAX)
-    {
-        vkDestroyImage(device, image, nullptr);
-        return nullptr;
-    }
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memReqs.size;
-    allocInfo.memoryTypeIndex = memoryType;
-
-    VkDeviceMemory memory;
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &memory) != VK_SUCCESS)
-    {
-        vkDestroyImage(device, image, nullptr);
-        return nullptr;
-    }
-
-    vkBindImageMemory(device, image, memory, 0);
 
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = image;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = vkFormat;
+    viewInfo.format = ConvertFormat(desc.Format);
     viewInfo.subresourceRange.aspectMask = GetAspect(desc);
     viewInfo.subresourceRange.baseMipLevel = 0;
     viewInfo.subresourceRange.levelCount = 1;
@@ -124,8 +91,7 @@ VulkanTexture* VulkanTexture::Create(TextureDesc& desc, VkDevice device, VkPhysi
     VkImageView view;
     if (vkCreateImageView(device, &viewInfo, nullptr, &view) != VK_SUCCESS)
     {
-        vkFreeMemory(device, memory, nullptr);
-        vkDestroyImage(device, image, nullptr);
+        vmaDestroyImage(allocator, image, allocation);
         return nullptr;
     }
 
@@ -144,12 +110,13 @@ VulkanTexture* VulkanTexture::Create(TextureDesc& desc, VkDevice device, VkPhysi
     }
 
     VulkanTexture* tex = new VulkanTexture();
-    tex->m_Device = device;
     tex->m_Image = image;
     tex->m_View = view;
     tex->m_DSView = dsView;
     tex->m_UAVView = uavView;
-    tex->m_Memory = memory;
+    tex->m_Allocation = allocation;
+    tex->m_Allocator = allocator;
+    tex->m_Device = device;
     tex->m_Desc = desc;
     return tex;
 }

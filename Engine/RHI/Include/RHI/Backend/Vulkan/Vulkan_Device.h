@@ -8,6 +8,7 @@
 #define VK_USE_PLATFORM_WIN32_KHR
 #include <Windows.h>
 #include <vulkan/vulkan.h>
+#include "vk_mem_alloc_wrapper.h"
 
 namespace grom {
 
@@ -45,6 +46,7 @@ public:
     VkPhysicalDevice GetPhysicalDevice() const { return m_PhysicalDevice; }
     VkDevice GetVkDevice() const { return m_Device; }
     VkRenderPass GetRenderPass() const { return m_RenderPass; }
+    VmaAllocator GetAllocator() const { return m_Allocator; }
 
     static VulkanDevice* Create(DeviceDesc& desc);
 
@@ -78,6 +80,8 @@ private:
     VkSemaphore m_ImageAvailableSemaphore = VK_NULL_HANDLE;
     VkSemaphore m_RenderFinishedSemaphore = VK_NULL_HANDLE;
     VkFence m_InFlightFence = VK_NULL_HANDLE;
+
+    VmaAllocator m_Allocator = VK_NULL_HANDLE;
 
     Texture* m_BackBufferTexture = nullptr;
     DeviceDesc m_Desc;

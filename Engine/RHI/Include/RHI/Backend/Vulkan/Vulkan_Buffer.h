@@ -6,6 +6,7 @@
 #endif
 #include <Windows.h>
 #include <vulkan/vulkan.h>
+#include "vk_mem_alloc_wrapper.h"
 
 namespace grom {
 
@@ -22,17 +23,17 @@ public:
     void Unmap() override;
 
     VkBuffer GetVkBuffer() const { return m_Buffer; }
-    VkDeviceMemory GetMemory() const { return m_Memory; }
+    VmaAllocation GetAllocation() const { return m_Allocation; }
 
-    static VulkanBuffer* Create(BufferDesc& desc, VkDevice device, VkPhysicalDevice physDevice);
+    static VulkanBuffer* Create(BufferDesc& desc, VkDevice device, VmaAllocator allocator);
 
 private:
     VkBuffer m_Buffer = VK_NULL_HANDLE;
-    VkDeviceMemory m_Memory = VK_NULL_HANDLE;
+    VmaAllocation m_Allocation = VK_NULL_HANDLE;
     BufferDesc m_Desc;
     void* m_MappedData = nullptr;
     VkDeviceSize m_AlignedSize = 0;
-    VkDevice m_Device = VK_NULL_HANDLE;
+    VmaAllocator m_Allocator = VK_NULL_HANDLE;
 };
 
 } // namespace grom

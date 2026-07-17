@@ -1,4 +1,5 @@
 #define VK_USE_PLATFORM_WIN32_KHR
+#define VMA_IMPLEMENTATION
 #include "RHI/Backend/Vulkan/Vulkan_Device.h"
 #include "RHI/Backend/Vulkan/Vulkan_Texture.h"
 #include "RHI/Backend/Vulkan/Vulkan_Shader.h"
@@ -31,6 +32,12 @@ VulkanDevice::~VulkanDevice()
         if (m_InFlightFence) vkDestroyFence(m_Device, m_InFlightFence, nullptr);
         if (m_CommandPool) vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
         if (m_RenderPass) vkDestroyRenderPass(m_Device, m_RenderPass, nullptr);
+        
+        if (m_Allocator) {
+            vmaDestroyAllocator(m_Allocator);
+            m_Allocator = VK_NULL_HANDLE;
+        }
+        
         vkDestroyDevice(m_Device, nullptr);
     }
     if (m_Surface) vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
@@ -196,6 +203,17 @@ bool VulkanDevice::CreateLogicalDevice()
 
     vkGetDeviceQueue(m_Device, m_GraphicsQueueFamily, 0, &m_GraphicsQueue);
     vkGetDeviceQueue(m_Device, m_PresentQueueFamily, 0, &m_PresentQueue);
+
+    // Create VMA allocator
+    VmaAllocatorCreateInfo allocatorInfo{};
+    allocatorInfo.physicalDevice = m_PhysicalDevice;
+    allocatorInfo.device = m_Device;
+    allocatorInfo.instance = m_Instance;
+    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+
+    if (vmaCreateAllocator(&allocatorInfo, &m_Allocator) != VK_SUCCESS)
+        return false;
+
     return true;
 }
 

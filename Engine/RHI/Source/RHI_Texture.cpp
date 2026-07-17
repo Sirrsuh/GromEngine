@@ -53,9 +53,8 @@ Texture* Texture::Create(TextureDesc& desc, ERenderAPI api)
 			if (!dev) return nullptr;
 			VkDevice vkDevice = static_cast<VkDevice>(dev->GetNativeDevice());
 			VulkanDevice* vkDev = static_cast<VulkanDevice*>(dev);
-			VkPhysicalDevice physDevice = vkDev->GetPhysicalDevice();
 			if (!vkDevice) return nullptr;
-			return VulkanTexture::Create(desc, vkDevice, physDevice);
+			return VulkanTexture::Create(desc, vkDevice, vkDev->GetAllocator());
 		}
 #endif
 #ifdef GROM_RHI_OPENGL
