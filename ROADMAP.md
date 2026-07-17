@@ -61,7 +61,7 @@ Cross-platform, multi-threaded AAA game engine with a custom UI framework, modul
 - [x] Texture compression (BCn) via DirectXTex
 - [x] Shader library with permutations
 - [x] File system abstraction
-- [ ] Package/archive format
+- [x] Package/archive format
 
 ---
 
