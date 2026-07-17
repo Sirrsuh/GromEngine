@@ -1,3 +1,4 @@
+#define VK_USE_PLATFORM_WIN32_KHR
 #include "RHI/Backend/Vulkan/Vulkan_Device.h"
 #include "RHI/Backend/Vulkan/Vulkan_Texture.h"
 #include "RHI/Backend/Vulkan/Vulkan_Shader.h"
@@ -260,10 +261,10 @@ bool VulkanDevice::CreateSwapChain()
         return false;
 
     vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, nullptr);
-    m_SwapChainImages.Resize(imageCount);
+    m_SwapChainImages = TArray<VkImage>(imageCount);
     vkGetSwapchainImagesKHR(m_Device, m_SwapChain, &imageCount, m_SwapChainImages.Data());
 
-    m_SwapChainImageViews.Resize(imageCount);
+    m_SwapChainImageViews = TArray<VkImageView>(imageCount);
     for (u32 i = 0; i < imageCount; ++i)
     {
         VkImageViewCreateInfo viewInfo{};
@@ -325,7 +326,7 @@ bool VulkanDevice::CreateRenderPass()
 
 void VulkanDevice::CreateFramebuffers()
 {
-    m_SwapChainFramebuffers.Resize(m_SwapChainImageViews.Size());
+    m_SwapChainFramebuffers = TArray<VkFramebuffer>(m_SwapChainImageViews.Size());
     for (u32 i = 0; i < m_SwapChainImageViews.Size(); ++i)
     {
         VkFramebufferCreateInfo info{};
@@ -348,7 +349,7 @@ void VulkanDevice::CreateCommandPool()
     info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     vkCreateCommandPool(m_Device, &info, nullptr, &m_CommandPool);
 
-    m_CommandBuffers.Resize(m_SwapChainFramebuffers.Size());
+    m_CommandBuffers = TArray<VkCommandBuffer>(m_SwapChainFramebuffers.Size());
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = m_CommandPool;
@@ -372,10 +373,10 @@ void VulkanDevice::CreateSyncObjects()
 
 void VulkanDevice::CleanupSwapChain()
 {
-    for (auto fb : m_SwapChainFramebuffers)
-        vkDestroyFramebuffer(m_Device, fb, nullptr);
-    for (auto view : m_SwapChainImageViews)
-        vkDestroyImageView(m_Device, view, nullptr);
+    for (usize i = 0; i < m_SwapChainFramebuffers.Size(); ++i)
+        vkDestroyFramebuffer(m_Device, m_SwapChainFramebuffers[i], nullptr);
+    for (usize i = 0; i < m_SwapChainImageViews.Size(); ++i)
+        vkDestroyImageView(m_Device, m_SwapChainImageViews[i], nullptr);
     if (m_SwapChain) vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
 }
 

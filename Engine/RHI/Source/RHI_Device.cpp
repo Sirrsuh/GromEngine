@@ -4,6 +4,10 @@
 #include "RHI/Backend/D3D11/D3D11_Device.h"
 #endif
 
+#ifdef GROM_RHI_VULKAN
+#include "RHI/Backend/Vulkan/Vulkan_Device.h"
+#endif
+
 namespace grom
 {
 
@@ -30,7 +34,6 @@ Device* Device::Create(DeviceDesc& desc)
 			return nullptr;
 #endif
 #ifdef GROM_RHI_VULKAN
-#include "RHI/Backend/Vulkan/Vulkan_Device.h"
 		case ERenderAPI::Vulkan:
 		{
 			g_ActiveDevice = VulkanDevice::Create(desc);

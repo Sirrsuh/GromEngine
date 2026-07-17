@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
 
-option(GROM_USE_PCH "Enable precompiled headers" ON)
-
 file(GLOB_RECURSE GROM_CORE_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp"
 )
@@ -21,9 +19,3 @@ target_include_directories(GromCore
 )
 
 target_compile_features(GromCore PUBLIC cxx_std_20)
-
-if(GROM_USE_PCH)
-    target_precompile_headers(GromCore PRIVATE
-        <Core/Core.h>
-    )
-endif()

@@ -1,3 +1,4 @@
+#define VK_USE_PLATFORM_WIN32_KHR
 #include "RHI/Backend/Vulkan/Vulkan_Buffer.h"
 #include <cstring>
 
@@ -82,7 +83,7 @@ VulkanBuffer* VulkanBuffer::Create(BufferDesc& desc, VkDevice device, VkPhysical
         return nullptr;
     }
 
-    VkMemoryAllocateInfo allocInfo{};
+VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memReqs.size;
     allocInfo.memoryTypeIndex = memoryType;
@@ -103,9 +104,9 @@ VulkanBuffer* VulkanBuffer::Create(BufferDesc& desc, VkDevice device, VkPhysical
     buf->m_Desc = desc;
 
     VkResult res = vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &buf->m_MappedData);
-    if (res == VK_SUCCESS && desc.Data && desc.Size > 0)
+    if (res == VK_SUCCESS && desc.InitialData && desc.Size > 0)
     {
-        memcpy(buf->m_MappedData, desc.Data, desc.Size);
+        memcpy(buf->m_MappedData, desc.InitialData, desc.Size);
     }
     else
     {

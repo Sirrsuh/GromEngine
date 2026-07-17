@@ -43,42 +43,6 @@ private:
 template<typename T>
 const AssetHandle<T> AssetHandle<T>::Invalid = AssetHandle<T>(0, EAssetType::None);
 
-class AssetRegistry
-{
-public:
-    template<typename T>
-    AssetHandle<T> AddAsset(EAssetType type, const GString& path);
-
-    template<typename T>
-    T* GetAsset(AssetHandle<T> handle);
-
-    template<typename T>
-    void RemoveAsset(AssetHandle<T> handle);
-
-    template<typename T>
-    bool Contains(AssetHandle<T> handle) const;
-
-    template<typename T>
-    GString GetAssetPath(AssetHandle<T> handle) const;
-
-    void Clear();
-    usize GetAssetCount() const;
-
-private:
-    struct AssetEntry
-    {
-        EAssetType type;
-        GString path;
-        GString typeName;
-        u8 data[1];
-    };
-
-    TArray<AssetEntry*> m_assets;
-    u64 m_nextId;
-    GHashMap<u64, AssetEntry*> m_handleToEntry;
-    GHashMap<GString, AssetHandle<void>> m_pathToHandle;
-};
-
 class TextureAsset
 {
 public:
@@ -113,25 +77,28 @@ public:
     Texture* GetTextureData(AssetHandle<TextureAsset> handle);
     u32 GetTextureWidth(AssetHandle<TextureAsset> handle);
     u32 GetTextureHeight(AssetHandle<TextureAsset> handle);
-
     bool IsTextureLoaded(AssetHandle<TextureAsset> handle) const;
 
     AssetHandle<TextureAsset> LoadTextureFromMemory(const void* data, usize size,
                                                    bool sRGB = true,
                                                    EFormat format = EFormat::R8G8B8A8_UNORM);
 
+private:
     GString GenerateGUID() const;
     GString GetCachePath(const GString& sourcePath, const GString& extension = "") const;
-
-private:
-    AssetRegistry m_registry;
-    GHashMap<GString, AssetHandle<TextureAsset>> m_textureCache;
 
     Texture* LoadTextureFromFile(const GString& path, bool sRGB,
                                 EFormat format, u32& width, u32& height, u32& mipLevels);
     Texture* CompressTextureWithDirectXTex(const GString& inputPath, const GString& outputPath,
                                            EFormat format, bool sRGB);
     Texture* LoadCompressedTexture(const GString& path, EFormat format);
+
+    // Note: For production, use proper hash map. Using simple stub for now.
+    struct TextureCacheEntry {
+        GString path;
+        AssetHandle<TextureAsset> handle;
+    };
+    TArray<TextureCacheEntry> m_textureCache;
 };
 
 } // namespace grom

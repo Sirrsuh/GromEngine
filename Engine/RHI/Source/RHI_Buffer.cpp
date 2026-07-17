@@ -5,6 +5,11 @@
 #include "RHI/Backend/D3D11/D3D11_Device.h"
 #endif
 
+#ifdef GROM_RHI_VULKAN
+#include "RHI/Backend/Vulkan/Vulkan_Buffer.h"
+#include "RHI/Backend/Vulkan/Vulkan_Device.h"
+#endif
+
 namespace grom
 {
 
@@ -30,8 +35,6 @@ Buffer* Buffer::Create(BufferDesc& desc, ERenderAPI api)
 			return nullptr;
 #endif
 #ifdef GROM_RHI_VULKAN
-#include "RHI/Backend/Vulkan/Vulkan_Buffer.h"
-#include "RHI/Backend/Vulkan/Vulkan_Device.h"
 		case ERenderAPI::Vulkan:
 		{
 			Device* dev = Device::GetActiveDevice();
