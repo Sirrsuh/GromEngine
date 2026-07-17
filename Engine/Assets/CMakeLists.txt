@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 project(GromAssets LANGUAGES CXX)
 
 if (GROM_RHI_D3D11 OR GROM_RHI_VULKAN)
-    add_library(GromAssets STATIC Source/Assets.cpp)
+    add_library(GromAssets STATIC Source/Assets.cpp Source/Package.cpp)
     target_link_libraries(GromAssets PUBLIC GromCore GromJobs GromRHI)
 else()
     add_library(GromAssets STATIC Source/Stub.cpp)
