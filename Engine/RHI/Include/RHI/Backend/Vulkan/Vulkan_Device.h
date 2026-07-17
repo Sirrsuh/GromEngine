@@ -48,6 +48,14 @@ public:
     VkRenderPass GetRenderPass() const { return m_RenderPass; }
     VmaAllocator GetAllocator() const { return m_Allocator; }
 
+    // Descriptor set management
+    VkDescriptorPool GetDescriptorPool() const { return m_DescriptorPool; }
+    VkDescriptorSetLayout GetDescriptorSetLayout(u32 setIndex) const { return m_DescriptorSetLayouts[setIndex]; }
+    VkDescriptorSet AllocateDescriptorSet(VkDescriptorSetLayout layout);
+    void FreeDescriptorSet(VkDescriptorSet set);
+    void UpdateDescriptorSets(u32 count, const VkWriteDescriptorSet* writes);
+    void BindDescriptorSets(VkPipelineBindPoint bindPoint, VkPipelineLayout layout, u32 firstSet, u32 setCount, const VkDescriptorSet* sets);
+
     static VulkanDevice* Create(DeviceDesc& desc);
 
 private:
@@ -61,6 +69,7 @@ private:
     void CreateCommandPool();
     void CreateSyncObjects();
     void CleanupSwapChain();
+    void CreateDescriptorPool();
 
     VkInstance m_Instance = VK_NULL_HANDLE;
     VkSurfaceKHR m_Surface = VK_NULL_HANDLE;
@@ -82,6 +91,11 @@ private:
     VkFence m_InFlightFence = VK_NULL_HANDLE;
 
     VmaAllocator m_Allocator = VK_NULL_HANDLE;
+
+    // Descriptor set management
+    VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
+    TArray<VkDescriptorSetLayout> m_DescriptorSetLayouts;
+    TArray<VkDescriptorSet> m_AllocatedDescriptorSets;
 
     Texture* m_BackBufferTexture = nullptr;
     DeviceDesc m_Desc;

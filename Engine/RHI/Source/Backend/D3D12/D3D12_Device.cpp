@@ -3,8 +3,14 @@
 #include "RHI/Backend/D3D12/D3D12_Shader.h"
 #include "RHI/Backend/D3D12/D3D12_Buffer.h"
 #include "RHI/Backend/D3D12/D3D12_Pipeline.h"
+#include <dxgi1_6.h>
+#include <d3dcompiler.h>
 #include <cassert>
 #include <vector>
+
+#pragma comment(lib, "d3d12.lib")
+#pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "d3dcompiler.lib")
 
 using Microsoft::WRL::ComPtr;
 
@@ -13,6 +19,25 @@ namespace grom {
 D3D12Device::~D3D12Device()
 {
     WaitForGpu();
+    if (m_FenceEvent) CloseHandle(m_FenceEvent);
+}
+
+D3D12Device* D3D12Device::Create(DeviceDesc& desc)
+{
+    D3D12Device* device = new D3D12Device();
+    device->m_Desc = desc;
+
+    if (!device->CreateFactory()) { delete device; return nullptr; }
+    if (!device->CreateDevice()) { delete device; return nullptr; }
+    if (!device->CreateCommandQueue()) { delete device; return nullptr; }
+    if (!device->CreateSwapChain()) { delete device; return nullptr; }
+    if (!device->CreateDescriptorHeaps()) { delete device; return nullptr; }
+    if (!device->CreateCommandAllocators()) { delete device; return nullptr; }
+    if (!device->CreateCommandList()) { delete device; return nullptr; }
+    if (!device->CreateFence()) { delete device; return nullptr; }
+    device->CreateRenderTargetViews();
+
+    return device;
 }
 
 bool D3D12Device::CreateFactory()
@@ -295,22 +320,81 @@ Texture* D3D12Device::GetBackBuffer()
     return m_BackBufferTexture;
 }
 
-D3D12Device* D3D12Device::Create(DeviceDesc& desc)
+void D3D12Device::ExecuteIndirect(Buffer* indirectBuffer, u32 offset, u32 drawCount, Buffer* countBuffer, u32 countOffset)
 {
-    D3D12Device* device = new D3D12Device();
-    device->m_Desc = desc;
+    if (!indirectBuffer || !m_CurrentRootSignature) return;
 
-    if (!device->CreateFactory()) { delete device; return nullptr; }
-    if (!device->CreateDevice()) { delete device; return nullptr; }
-    if (!device->CreateCommandQueue()) { delete device; return nullptr; }
-    if (!device->CreateSwapChain()) { delete device; return nullptr; }
-    if (!device->CreateDescriptorHeaps()) { delete device; return nullptr; }
-    if (!device->CreateCommandAllocators()) { delete device; return nullptr; }
-    if (!device->CreateCommandList()) { delete device; return nullptr; }
-    if (!device->CreateFence()) { delete device; return nullptr; }
-    device->CreateRenderTargetViews();
+    D3D12Buffer* d3d12Buffer = static_cast<D3D12Buffer*>(indirectBuffer);
+    ComPtr<ID3D12Resource> resource = d3d12Buffer->GetResource();
 
-    return device;
+    // Create command signature if not cached
+    static ComPtr<ID3D12CommandSignature> cmdSig;
+    if (!cmdSig)
+    {
+        D3D12_INDIRECT_ARGUMENT_DESC argDesc{};
+        argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+
+        D3D12_COMMAND_SIGNATURE_DESC cmdSigDesc{};
+        cmdSigDesc.NumArgumentDescs = 1;
+        cmdSigDesc.pArgumentDescs = &argDesc;
+        cmdSigDesc.ByteStride = sizeof(D3D12_DRAW_ARGUMENTS);
+
+        m_Device->CreateCommandSignature(&cmdSigDesc, m_CurrentRootSignature.Get(), IID_PPV_ARGS(&cmdSig));
+    }
+
+    if (countBuffer)
+    {
+        D3D12Buffer* d3d12CountBuffer = static_cast<D3D12Buffer*>(countBuffer);
+        m_CommandList->ExecuteIndirect(cmdSig.Get(), drawCount, resource.Get(), offset, d3d12CountBuffer->GetResource().Get(), countOffset);
+    }
+    else
+    {
+        m_CommandList->ExecuteIndirect(cmdSig.Get(), drawCount, resource.Get(), offset, nullptr, 0);
+    }
+}
+
+void D3D12Device::ExecuteIndirectIndexed(Buffer* indirectBuffer, u32 offset, u32 drawCount, Buffer* countBuffer, u32 countOffset)
+{
+    if (!indirectBuffer || !m_CurrentRootSignature) return;
+
+    D3D12Buffer* d3d12Buffer = static_cast<D3D12Buffer*>(indirectBuffer);
+    ComPtr<ID3D12Resource> resource = d3d12Buffer->GetResource();
+
+    static ComPtr<ID3D12CommandSignature> cmdSigIndexed;
+    if (!cmdSigIndexed)
+    {
+        D3D12_INDIRECT_ARGUMENT_DESC argDesc{};
+        argDesc.Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
+
+        D3D12_COMMAND_SIGNATURE_DESC cmdSigDesc{};
+        cmdSigDesc.NumArgumentDescs = 1;
+        cmdSigDesc.pArgumentDescs = &argDesc;
+        cmdSigDesc.ByteStride = sizeof(D3D12_DRAW_INDEXED_ARGUMENTS);
+
+        m_Device->CreateCommandSignature(&cmdSigDesc, m_CurrentRootSignature.Get(), IID_PPV_ARGS(&cmdSigIndexed));
+    }
+
+    if (countBuffer)
+    {
+        D3D12Buffer* d3d12CountBuffer = static_cast<D3D12Buffer*>(countBuffer);
+        m_CommandList->ExecuteIndirect(cmdSigIndexed.Get(), drawCount, resource.Get(), offset, d3d12CountBuffer->GetResource().Get(), countOffset);
+    }
+    else
+    {
+        m_CommandList->ExecuteIndirect(cmdSigIndexed.Get(), drawCount, resource.Get(), offset, nullptr, 0);
+    }
+}
+
+ComPtr<ID3D12CommandSignature> D3D12Device::CreateCommandSignature(const D3D12_INDIRECT_ARGUMENT_DESC* args, u32 argCount, ID3D12RootSignature* rootSignature)
+{
+    ComPtr<ID3D12CommandSignature> cmdSig;
+    D3D12_COMMAND_SIGNATURE_DESC cmdSigDesc{};
+    cmdSigDesc.NumArgumentDescs = argCount;
+    cmdSigDesc.pArgumentDescs = args;
+    cmdSigDesc.ByteStride = 0;
+
+    m_Device->CreateCommandSignature(&cmdSigDesc, rootSignature, IID_PPV_ARGS(&cmdSig));
+    return cmdSig;
 }
 
 } // namespace grom

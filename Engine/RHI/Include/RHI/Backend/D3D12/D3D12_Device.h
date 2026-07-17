@@ -44,6 +44,11 @@ public:
     void EndFrame() override;
     Texture* GetBackBuffer() override;
 
+    // ExecuteIndirect / GPU-driven rendering
+    void ExecuteIndirect(Buffer* indirectBuffer, u32 offset, u32 drawCount, Buffer* countBuffer = nullptr, u32 countOffset = 0);
+    void ExecuteIndirectIndexed(Buffer* indirectBuffer, u32 offset, u32 drawCount, Buffer* countBuffer = nullptr, u32 countOffset = 0);
+    Microsoft::WRL::ComPtr<ID3D12CommandSignature> CreateCommandSignature(const D3D12_INDIRECT_ARGUMENT_DESC* args, u32 argCount, ID3D12RootSignature* rootSignature);
+
     static D3D12Device* Create(DeviceDesc& desc);
 
     Microsoft::WRL::ComPtr<ID3D12Device> GetD3D12Device() const { return m_Device; }

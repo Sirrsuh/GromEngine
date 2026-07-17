@@ -63,6 +63,7 @@ VulkanDevice* VulkanDevice::Create(DeviceDesc& desc)
     device->CreateFramebuffers();
     device->CreateCommandPool();
     device->CreateSyncObjects();
+    device->CreateDescriptorPool();
 
     return device;
 }
@@ -548,6 +549,84 @@ void VulkanDevice::EndFrame()
 Texture* VulkanDevice::GetBackBuffer()
 {
     return m_BackBufferTexture;
+}
+
+} // namespace grom
+
+// ============================================================================
+// Descriptor Set Management
+// ============================================================================
+
+namespace grom {
+
+void VulkanDevice::CreateDescriptorPool()
+{
+    VkDescriptorPoolSize poolSizes[] = {
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1024 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1024 },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1024 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1024 },
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 1024 },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1024 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1024 },
+    };
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    poolInfo.maxSets = 4096;
+    poolInfo.poolSizeCount = 7;
+    poolInfo.pPoolSizes = poolSizes;
+
+    if (vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool) != VK_SUCCESS)
+    {
+        // Handle error
+    }
+}
+
+VkDescriptorSet VulkanDevice::AllocateDescriptorSet(VkDescriptorSetLayout layout)
+{
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = m_DescriptorPool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &layout;
+
+    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+    VkResult result = vkAllocateDescriptorSets(m_Device, &allocInfo, &descriptorSet);
+    if (result == VK_SUCCESS)
+    {
+        m_AllocatedDescriptorSets.Add(descriptorSet);
+        return descriptorSet;
+    }
+
+    return VK_NULL_HANDLE;
+}
+
+void VulkanDevice::FreeDescriptorSet(VkDescriptorSet set)
+{
+    if (set != VK_NULL_HANDLE)
+    {
+        vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+        for (usize i = 0; i < m_AllocatedDescriptorSets.Size(); ++i)
+        {
+            if (m_AllocatedDescriptorSets[i] == set)
+            {
+                m_AllocatedDescriptorSets.RemoveAt(i);
+                break;
+            }
+        }
+    }
+}
+
+void VulkanDevice::UpdateDescriptorSets(u32 count, const VkWriteDescriptorSet* writes)
+{
+    vkUpdateDescriptorSets(m_Device, count, writes, 0, nullptr);
+}
+
+void VulkanDevice::BindDescriptorSets(VkPipelineBindPoint bindPoint, VkPipelineLayout layout, u32 firstSet, u32 setCount, const VkDescriptorSet* sets)
+{
+    vkCmdBindDescriptorSets(m_CommandBuffers[m_CurrentFrame], bindPoint, layout, firstSet, setCount, sets, 0, nullptr);
 }
 
 } // namespace grom
