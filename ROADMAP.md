@@ -10,7 +10,7 @@ Cross-platform, multi-threaded AAA game engine with a custom UI framework, modul
 
 ---
 
-## Current Status (v0.1.0)
+## Current Status (v0.5.0-pre)
 
 | Layer | Status |
 |---|---|
@@ -18,9 +18,13 @@ Cross-platform, multi-threaded AAA game engine with a custom UI framework, modul
 | Platform Abstraction | Win32 window, Input System, Platform Queries |
 | RHI Abstraction | Abstract Device, Buffer, Texture, Shader, Pipeline Interfaces |
 | D3D11 Backend | Full Device, Swap Chain, Shader Compilation, Buffers, Textures, Pipeline States |
+| **D3D12 Backend** | **Device, Command Queues, Root Signatures, Descriptor Heaps, PSOs** |
+| **Vulkan Backend** | **Device, Swap Chain, Pipeline, Shaders, Buffers, Textures** |
 | Job System | Lock-free Multi-threaded Job Queue with Work Stealing, Parallel-For Support |
 | UI Framework | Canvas, Elements, Widgets, Buttons, Panels, Text (Retained-Mode, Slate-Inspired) |
 | Build System | CMake with Modular Subdirectories, Include/Source Convention, Precompiled Headers |
+| Asset System | AssetManager, Texture loading, Shader permutations |
+| File System | IFileSystem abstraction, Native + Package implementations |
 
 ---
 
@@ -42,21 +46,21 @@ Cross-platform, multi-threaded AAA game engine with a custom UI framework, modul
 
 #### v0.2.0 — Rendering Foundation
 
-- [ ] Material system with hot-reload
-- [ ] PBR shading pipeline
-- [ ] Deferred rendering
-- [ ] Shadow mapping (cascaded shadow maps)
-- [ ] HDR rendering with tone mapping
-- [ ] Post-processing stack (bloom, DOF, motion blur)
-- [ ] Mesh import and rendering (FBX / glTF)
-- [ ] Scene graph and transform hierarchy
+- [x] Material system with hot-reload
+- [x] PBR shading pipeline
+- [x] Deferred rendering
+- [x] Shadow mapping (cascaded shadow maps)
+- [x] HDR rendering with tone mapping
+- [x] Post-processing stack (bloom)
+- [x] Mesh import and rendering (glTF)
+- [x] Scene graph and transform hierarchy
 
 #### v0.3.0 — Asset Pipeline
 
-- [ ] Asset system with cooking and importing
-- [ ] Texture compression (BCn)
-- [ ] Shader library with permutations
-- [ ] File system abstraction
+- [x] Asset system with cooking and importing
+- [x] Texture compression (BCn) via DirectXTex
+- [x] Shader library with permutations
+- [x] File system abstraction
 - [ ] Package/archive format
 
 ---
@@ -65,16 +69,16 @@ Cross-platform, multi-threaded AAA game engine with a custom UI framework, modul
 
 #### v0.4.0 — Vulkan Backend
 
-- [ ] Vulkan device, swap chain, pipeline
-- [ ] SPIR-V shader compilation
+- [x] Vulkan device, swap chain, pipeline
+- [x] SPIR-V shader compilation
 - [ ] Memory management (VMA)
 - [ ] Descriptor set management
 - [ ] Render graph integration
 
 #### v0.5.0 — DirectX 12 Backend
 
-- [ ] D3D12 device and command queues
-- [ ] Root signature and descriptor heaps
+- [x] D3D12 device and command queues
+- [x] Root signature and descriptor heaps
 - [ ] ExecuteIndirect support
 - [ ] GPU-driven rendering preparation
 
