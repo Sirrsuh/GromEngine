@@ -41,6 +41,8 @@ public:
 	virtual void SetConstantBuffer(Buffer* buffer, u32 slot, EShaderType shader) = 0;
 	virtual void SetRenderTargets(Texture* const* renderTargets, u32 count, Texture* depthStencil) = 0;
 	virtual void SetShaderResource(Texture* texture, u32 slot, EShaderType shader) = 0;
+	virtual void SetUnorderedAccessView(Texture* texture, u32 slot, EShaderType shader) = 0;
+	virtual void SetBlendState(bool enable, EBlendFactor srcFactor = EBlendFactor::One, EBlendFactor dstFactor = EBlendFactor::Zero) = 0;
 	virtual void Draw(u32 vertexCount, u32 startVertex = 0) = 0;
 	virtual void DrawIndexed(u32 indexCount, u32 startIndex = 0, u32 baseVertex = 0) = 0;
 	virtual void Dispatch(u32 groupX, u32 groupY, u32 groupZ) = 0;

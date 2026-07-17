@@ -121,6 +121,24 @@ bool Renderer::Initialize(Device* device, u32 width, u32 height)
         if (!m_ToneMapPS) return false;
     }
 
+    // Bloom shaders
+    {
+        GString src = ReadShaderFile("Engine/Shaders/HLSL/Bloom_Extract_PS.hlsl");
+        psDesc.Source = src;
+        m_BloomExtractPS = Shader::Create(psDesc, api);
+        if (!m_BloomExtractPS) return false;
+
+        src = ReadShaderFile("Engine/Shaders/HLSL/Bloom_Downsample_PS.hlsl");
+        psDesc.Source = src;
+        m_BloomDownsamplePS = Shader::Create(psDesc, api);
+        if (!m_BloomDownsamplePS) return false;
+
+        src = ReadShaderFile("Engine/Shaders/HLSL/Bloom_Upsample_PS.hlsl");
+        psDesc.Source = src;
+        m_BloomUpsamplePS = Shader::Create(psDesc, api);
+        if (!m_BloomUpsamplePS) return false;
+    }
+
     // Constant buffers
     {
         BufferDesc cb = {};
@@ -253,6 +271,32 @@ bool Renderer::CreateGBuffer(u32 width, u32 height)
     shadowDesc.DebugName = "ShadowMap";
     m_ShadowMap = Texture::Create(shadowDesc, api);
     if (!m_ShadowMap) return false;
+
+    // Bloom mip chain (successively halved)
+    for (u32 i = 0; i < BLOOM_MIP_COUNT; ++i)
+    {
+        u32 mipW = (std::max)(width >> (i + 1), 1u);
+        u32 mipH = (std::max)(height >> (i + 1), 1u);
+        TextureDesc bloomDesc = {};
+        bloomDesc.Width = mipW;
+        bloomDesc.Height = mipH;
+        bloomDesc.Format = EFormat::R16G16B16A16_FLOAT;
+        bloomDesc.IsRenderTarget = true;
+        bloomDesc.DebugName = GString::Format("BloomMip_%u", i).c_str();
+        m_BloomMips[i] = Texture::Create(bloomDesc, api);
+        if (!m_BloomMips[i]) return false;
+    }
+    // Temp for upsampling
+    {
+        TextureDesc tempDesc = {};
+        tempDesc.Width = (std::max)(width >> 1, 1u);
+        tempDesc.Height = (std::max)(height >> 1, 1u);
+        tempDesc.Format = EFormat::R16G16B16A16_FLOAT;
+        tempDesc.IsRenderTarget = true;
+        tempDesc.DebugName = "BloomTemp";
+        m_BloomTemp = Texture::Create(tempDesc, api);
+        if (!m_BloomTemp) return false;
+    }
 
     return true;
 }
@@ -400,6 +444,28 @@ bool Renderer::CreatePipelines()
         if (!m_ShadowPipeline) return false;
     }
 
+    // Bloom pipelines
+    {
+        PipelineDesc desc = {};
+        desc.VS = m_FullscreenVS;
+        desc.PS = m_BloomExtractPS;
+        desc.Rasterizer.CullMode = ECullMode::None;
+        desc.DepthStencil.DepthEnable = false;
+        desc.DepthStencil.DepthWrite = false;
+        desc.Blend.Enable = false;
+        desc.Topology = EPrimitiveTopology::TriangleList;
+        m_BloomExtractPipeline = Pipeline::Create(desc, api);
+        if (!m_BloomExtractPipeline) return false;
+
+        desc.PS = m_BloomDownsamplePS;
+        m_BloomDownsamplePipeline = Pipeline::Create(desc, api);
+        if (!m_BloomDownsamplePipeline) return false;
+
+        desc.PS = m_BloomUpsamplePS;
+        m_BloomUpsamplePipeline = Pipeline::Create(desc, api);
+        if (!m_BloomUpsamplePipeline) return false;
+    }
+
     // Tone map pass
     {
         PipelineDesc desc = {};
@@ -463,6 +529,17 @@ void Renderer::Shutdown()
 
     SafeRelease(m_ShadowVS);
     SafeRelease(m_ShadowPipeline);
+
+    for (u32 i = 0; i < BLOOM_MIP_COUNT; ++i)
+        SafeRelease(m_BloomMips[i]);
+    SafeRelease(m_BloomTemp);
+
+    SafeRelease(m_BloomExtractPS);
+    SafeRelease(m_BloomDownsamplePS);
+    SafeRelease(m_BloomUpsamplePS);
+    SafeRelease(m_BloomExtractPipeline);
+    SafeRelease(m_BloomDownsamplePipeline);
+    SafeRelease(m_BloomUpsamplePipeline);
 
     SafeRelease(m_ToneMapPS);
     SafeRelease(m_ToneMapPipeline);
@@ -727,11 +804,71 @@ void Renderer::RenderDeferredLightingPass(Device* device)
     device->Draw(3, 0);
 }
 
+void Renderer::RenderBloomPass(Device* device)
+{
+    if (!m_BloomEnabled) return;
+
+    // Extract bright regions from HDR target
+    device->SetRenderTargets(&m_BloomMips[0], 1, nullptr);
+    ViewportDesc vp = {};
+    vp.Width = static_cast<f32>((std::max)(m_Width >> 1, 1u));
+    vp.Height = static_cast<f32>((std::max)(m_Height >> 1, 1u));
+    vp.MaxDepth = 1.0f;
+    device->SetViewport(vp);
+    device->SetPipeline(m_BloomExtractPipeline);
+    device->SetShaderResource(m_HDRTarget, 0, EShaderType::Pixel);
+    device->Draw(3, 0);
+
+    // Downsample chain
+    for (u32 i = 1; i < BLOOM_MIP_COUNT; ++i)
+    {
+        device->SetRenderTargets(&m_BloomMips[i], 1, nullptr);
+        vp.Width = static_cast<f32>((std::max)(m_Width >> (i + 1), 1u));
+        vp.Height = static_cast<f32>((std::max)(m_Height >> (i + 1), 1u));
+        device->SetViewport(vp);
+        device->SetPipeline(m_BloomDownsamplePipeline);
+        device->SetShaderResource(m_BloomMips[i - 1], 0, EShaderType::Pixel);
+        device->Draw(3, 0);
+    }
+
+    // Upsample and combine chain
+    for (u32 i = BLOOM_MIP_COUNT - 1; i > 0; --i)
+    {
+        device->SetRenderTargets(&m_BloomTemp, 1, nullptr);
+        vp.Width = static_cast<f32>((std::max)(m_Width >> i, 1u));
+        vp.Height = static_cast<f32>((std::max)(m_Height >> i, 1u));
+        device->SetViewport(vp);
+        device->SetPipeline(m_BloomUpsamplePipeline);
+        device->SetShaderResource(m_BloomMips[i], 0, EShaderType::Pixel);
+        device->SetShaderResource(m_BloomMips[i - 1], 1, EShaderType::Pixel);
+        device->Draw(3, 0);
+
+        // Copy temp back to mip[i-1]
+        device->SetRenderTargets(&m_BloomMips[i - 1], 1, nullptr);
+        device->SetPipeline(m_BloomExtractPipeline); // reuse passthrough
+        device->SetShaderResource(m_BloomTemp, 0, EShaderType::Pixel);
+        device->Draw(3, 0);
+    }
+
+    // Add bloom back to HDR target
+    device->SetRenderTargets(&m_HDRTarget, 1, nullptr);
+    vp.Width = static_cast<f32>(m_Width);
+    vp.Height = static_cast<f32>(m_Height);
+    device->SetViewport(vp);
+    device->SetPipeline(m_BloomUpsamplePipeline);
+    device->SetShaderResource(m_BloomMips[0], 0, EShaderType::Pixel);
+    device->SetShaderResource(m_HDRTarget, 1, EShaderType::Pixel);
+    device->SetBlendState(true, EBlendFactor::One, EBlendFactor::One);
+    device->Draw(3, 0);
+    device->SetBlendState(false, EBlendFactor::One, EBlendFactor::Zero);
+}
+
 void Renderer::RenderToneMapPass(Device* device)
 {
     ToneMapData tmData = {};
     tmData.Exposure = 1.0f;
     tmData.ToneMapMode = 1.0f;
+    tmData.Intensity = m_BloomEnabled ? 1.0f : 0.0f;
 
     void* mapped = m_ToneMapConstantBuffer->Map();
     if (mapped)
@@ -799,6 +936,7 @@ void Renderer::RenderScene(Device* device, Scene* scene, f32 deltaTime)
     RenderGBufferPass(device, scene);
     RenderDeferredLightingPass(device);
     RenderSkyboxPass(device, scene);
+    RenderBloomPass(device);
     RenderToneMapPass(device);
 }
 

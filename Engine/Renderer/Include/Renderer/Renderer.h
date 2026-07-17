@@ -69,7 +69,8 @@ struct ToneMapData
 {
     f32 Exposure;
     f32 ToneMapMode;
-    f32 DummyToneMap[2];
+    f32 Intensity;       // bloom intensity
+    f32 DummyToneMap;
 };
 
 class Renderer {
@@ -83,6 +84,9 @@ public:
 
     void RenderScene(Device* device, Scene* scene, f32 deltaTime);
     void RenderToBackbuffer(Device* device);
+
+    void SetBloomEnabled(bool enabled) { m_BloomEnabled = enabled; }
+    bool IsBloomEnabled() const { return m_BloomEnabled; }
 
     Texture* GetGBufferAlbedo() const { return m_GBufferAlbedo; }
     Texture* GetGBufferNormal() const { return m_GBufferNormal; }
@@ -101,6 +105,7 @@ private:
     void RenderGBufferPass(Device* device, Scene* scene);
     void RenderDeferredLightingPass(Device* device);
     void RenderSkyboxPass(Device* device, Scene* scene);
+    void RenderBloomPass(Device* device);
     void RenderToneMapPass(Device* device);
 
     Texture* m_GBufferAlbedo = nullptr;
@@ -111,6 +116,11 @@ private:
 
     Texture* m_HDRTarget = nullptr;
     Texture* m_ShadowMap = nullptr;
+
+    // Bloom resources
+    static constexpr u32 BLOOM_MIP_COUNT = 5;
+    Texture* m_BloomMips[BLOOM_MIP_COUNT] = {};
+    Texture* m_BloomTemp = nullptr;
 
     Shader* m_GBufferVS = nullptr;
     Shader* m_GBufferPS = nullptr;
@@ -127,6 +137,13 @@ private:
     Shader* m_ShadowVS = nullptr;
     Pipeline* m_ShadowPipeline = nullptr;
 
+    Shader* m_BloomExtractPS = nullptr;
+    Shader* m_BloomDownsamplePS = nullptr;
+    Shader* m_BloomUpsamplePS = nullptr;
+    Pipeline* m_BloomExtractPipeline = nullptr;
+    Pipeline* m_BloomDownsamplePipeline = nullptr;
+    Pipeline* m_BloomUpsamplePipeline = nullptr;
+
     Shader* m_ToneMapPS = nullptr;
     Pipeline* m_ToneMapPipeline = nullptr;
 
@@ -141,6 +158,7 @@ private:
     u32 m_FrameCount = 0;
     f64 m_TotalTime = 0.0;
     bool m_Initialized = false;
+    bool m_BloomEnabled = true;
 };
 
 } // namespace grom

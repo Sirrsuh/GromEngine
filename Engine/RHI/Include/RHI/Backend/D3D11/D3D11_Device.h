@@ -35,6 +35,8 @@ public:
 	void SetConstantBuffer(Buffer* buffer, u32 slot, EShaderType shader) override;
 	void SetRenderTargets(Texture* const* renderTargets, u32 count, Texture* depthStencil) override;
 	void SetShaderResource(Texture* texture, u32 slot, EShaderType shader) override;
+	void SetUnorderedAccessView(Texture* texture, u32 slot, EShaderType shader) override;
+	void SetBlendState(bool enable, EBlendFactor srcFactor, EBlendFactor dstFactor) override;
 	void Draw(u32 vertexCount, u32 startVertex) override;
 	void DrawIndexed(u32 indexCount, u32 startIndex, u32 baseVertex) override;
 	void Dispatch(u32 groupX, u32 groupY, u32 groupZ) override;

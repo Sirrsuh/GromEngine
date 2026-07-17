@@ -29,8 +29,17 @@ Pipeline* Pipeline::Create(PipelineDesc& desc, ERenderAPI api)
 			return nullptr;
 #endif
 #ifdef GROM_RHI_VULKAN
+#include "RHI/Backend/Vulkan/Vulkan_Pipeline.h"
+#include "RHI/Backend/Vulkan/Vulkan_Device.h"
 		case ERenderAPI::Vulkan:
-			return nullptr;
+		{
+			Device* dev = Device::GetActiveDevice();
+			if (!dev) return nullptr;
+			VkDevice vkDevice = static_cast<VkDevice>(dev->GetNativeDevice());
+			VulkanDevice* vkDev = static_cast<VulkanDevice*>(dev);
+			if (!vkDevice) return nullptr;
+			return VulkanPipeline::Create(desc, vkDevice, vkDev->GetRenderPass());
+		}
 #endif
 #ifdef GROM_RHI_OPENGL
 		case ERenderAPI::OpenGL:

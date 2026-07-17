@@ -33,6 +33,15 @@ endif()
 
 if(GROM_RHI_VULKAN)
     target_compile_definitions(GromRHI PUBLIC GROM_RHI_VULKAN=1)
+    target_sources(GromRHI PRIVATE
+        Source/Backend/Vulkan/Vulkan_Device.cpp
+        Source/Backend/Vulkan/Vulkan_Shader.cpp
+        Source/Backend/Vulkan/Vulkan_Buffer.cpp
+        Source/Backend/Vulkan/Vulkan_Texture.cpp
+        Source/Backend/Vulkan/Vulkan_Pipeline.cpp
+    )
+    find_package(Vulkan REQUIRED)
+    target_link_libraries(GromRHI PUBLIC Vulkan::Vulkan)
 endif()
 
 if(GROM_RHI_OPENGL)

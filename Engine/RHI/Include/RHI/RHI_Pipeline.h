@@ -60,6 +60,7 @@ struct PipelineDesc
 	Shader* GS = nullptr;
 	Shader* HS = nullptr;
 	Shader* DS = nullptr;
+	Shader* CS = nullptr;
 	BufferLayout InputLayout;
 	RasterizerDesc Rasterizer;
 	DepthStencilDesc DepthStencil;

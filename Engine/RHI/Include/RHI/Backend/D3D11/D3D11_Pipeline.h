@@ -30,6 +30,7 @@ public:
 	D3D11Shader* GetGS() const { return m_GS; }
 	D3D11Shader* GetHS() const { return m_HS; }
 	D3D11Shader* GetDS() const { return m_DS; }
+	D3D11Shader* GetCS() const { return m_CS; }
 
 	static D3D11Pipeline* Create(PipelineDesc& desc, ID3D11Device* device);
 
@@ -50,6 +51,7 @@ private:
 	D3D11Shader* m_GS = nullptr;
 	D3D11Shader* m_HS = nullptr;
 	D3D11Shader* m_DS = nullptr;
+	D3D11Shader* m_CS = nullptr;
 	PipelineDesc m_Desc;
 };
 

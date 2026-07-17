@@ -350,12 +350,14 @@ void D3D11Device::SetPipeline(Pipeline* pipeline)
 	D3D11Shader* gs = p->GetGS();
 	D3D11Shader* hs = p->GetHS();
 	D3D11Shader* ds = p->GetDS();
+	D3D11Shader* cs = p->GetCS();
 
 	m_Context->VSSetShader(vs ? vs->GetVertexShader() : nullptr, nullptr, 0);
 	m_Context->PSSetShader(ps ? ps->GetPixelShader() : nullptr, nullptr, 0);
 	m_Context->GSSetShader(gs ? gs->GetGeometryShader() : nullptr, nullptr, 0);
 	m_Context->HSSetShader(hs ? hs->GetHullShader() : nullptr, nullptr, 0);
 	m_Context->DSSetShader(ds ? ds->GetDomainShader() : nullptr, nullptr, 0);
+	m_Context->CSSetShader(cs ? cs->GetComputeShader() : nullptr, nullptr, 0);
 
 	m_Context->RSSetState(p->GetRasterizerState());
 	m_Context->OMSetDepthStencilState(p->GetDepthStencilState(), 0);
@@ -446,6 +448,44 @@ void D3D11Device::SetShaderResource(Texture* texture, u32 slot, EShaderType shad
 	case EShaderType::Hull:     m_Context->HSSetShaderResources(slot, 1, &srv); break;
 	case EShaderType::Domain:   m_Context->DSSetShaderResources(slot, 1, &srv); break;
 	case EShaderType::Compute:  m_Context->CSSetShaderResources(slot, 1, &srv); break;
+	}
+}
+
+void D3D11Device::SetUnorderedAccessView(Texture* texture, u32 slot, EShaderType shader)
+{
+	if (!texture)
+		return;
+
+	D3D11Texture* tex = static_cast<D3D11Texture*>(texture);
+	ID3D11UnorderedAccessView* uav = tex->GetUAV();
+
+	switch (shader)
+	{
+	case EShaderType::Compute:  m_Context->CSSetUnorderedAccessViews(slot, 1, &uav, nullptr); break;
+	default: break;
+	}
+}
+
+void D3D11Device::SetBlendState(bool enable, EBlendFactor srcFactor, EBlendFactor dstFactor)
+{
+	D3D11_BLEND_DESC desc{};
+	desc.AlphaToCoverageEnable = FALSE;
+	desc.IndependentBlendEnable = FALSE;
+	desc.RenderTarget[0].BlendEnable = enable ? TRUE : FALSE;
+	desc.RenderTarget[0].SrcBlend = ToD3DBlend(srcFactor);
+	desc.RenderTarget[0].DestBlend = ToD3DBlend(dstFactor);
+	desc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	desc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	desc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	desc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	desc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+	ID3D11BlendState* state = nullptr;
+	m_Device->CreateBlendState(&desc, &state);
+	if (state)
+	{
+		m_Context->OMSetBlendState(state, nullptr, 0xFFFFFFFF);
+		state->Release();
 	}
 }
 

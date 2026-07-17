@@ -30,8 +30,18 @@ Buffer* Buffer::Create(BufferDesc& desc, ERenderAPI api)
 			return nullptr;
 #endif
 #ifdef GROM_RHI_VULKAN
+#include "RHI/Backend/Vulkan/Vulkan_Buffer.h"
+#include "RHI/Backend/Vulkan/Vulkan_Device.h"
 		case ERenderAPI::Vulkan:
-			return nullptr;
+		{
+			Device* dev = Device::GetActiveDevice();
+			if (!dev) return nullptr;
+			VkDevice vkDevice = static_cast<VkDevice>(dev->GetNativeDevice());
+			VulkanDevice* vkDev = static_cast<VulkanDevice*>(dev);
+			VkPhysicalDevice physDevice = vkDev->GetPhysicalDevice();
+			if (!vkDevice) return nullptr;
+			return VulkanBuffer::Create(desc, vkDevice, physDevice);
+		}
 #endif
 #ifdef GROM_RHI_OPENGL
 		case ERenderAPI::OpenGL:

@@ -67,6 +67,8 @@ D3D11Pipeline* D3D11Pipeline::Create(PipelineDesc& desc, ID3D11Device* device)
 		pipeline->m_HS = static_cast<D3D11Shader*>(desc.HS);
 	if (desc.DS)
 		pipeline->m_DS = static_cast<D3D11Shader*>(desc.DS);
+	if (desc.CS)
+		pipeline->m_CS = static_cast<D3D11Shader*>(desc.CS);
 
 	BufferLayout& layout = desc.InputLayout;
 	if (layout.Elements.Size() > 0 && pipeline->m_VS && pipeline->m_VS->GetBlob())

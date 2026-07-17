@@ -30,8 +30,15 @@ Shader* Shader::Create(ShaderDesc& desc, ERenderAPI api)
 			return nullptr;
 #endif
 #ifdef GROM_RHI_VULKAN
+#include "RHI/Backend/Vulkan/Vulkan_Shader.h"
 		case ERenderAPI::Vulkan:
-			return nullptr;
+		{
+			Device* dev = Device::GetActiveDevice();
+			if (!dev) return nullptr;
+			VkDevice vkDevice = static_cast<VkDevice>(dev->GetNativeDevice());
+			if (!vkDevice) return nullptr;
+			return VulkanShader::Create(desc, vkDevice);
+		}
 #endif
 #ifdef GROM_RHI_OPENGL
 		case ERenderAPI::OpenGL:

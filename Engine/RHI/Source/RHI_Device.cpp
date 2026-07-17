@@ -30,8 +30,12 @@ Device* Device::Create(DeviceDesc& desc)
 			return nullptr;
 #endif
 #ifdef GROM_RHI_VULKAN
+#include "RHI/Backend/Vulkan/Vulkan_Device.h"
 		case ERenderAPI::Vulkan:
-			return nullptr;
+		{
+			g_ActiveDevice = VulkanDevice::Create(desc);
+			return g_ActiveDevice;
+		}
 #endif
 #ifdef GROM_RHI_OPENGL
 		case ERenderAPI::OpenGL:
